@@ -84,7 +84,7 @@ export function Header() {
         variant="contained"
         color="primary"
         component={Link}
-        to="/contact"
+        to="/cotizaciones"
         sx={{ m: 2, px: 3 }}
         fullWidth
       >
@@ -130,7 +130,7 @@ export function Header() {
             </Box>
 
             <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
-              <Button variant="contained" color="primary" component={Link} to="/contact" sx={{ px: 3 }}>
+              <Button variant="contained" color="primary" component={Link} to="/cotizaciones" sx={{ px: 3 }}>
                 ¡Cotiza!
               </Button>
             </Box>
