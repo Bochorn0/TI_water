@@ -5,7 +5,9 @@ import packageJson from '../package.json';
 // API endpoints configuration for TI Water quotes system
 
 // API Base URL - v2.0 TI Water endpoints
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://164.92.95.176:3009/api/v2.0';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV ? 'http://localhost:3009/api/v2.0' : 'https://www.lcc.com.mx/api/v2.0');
 const API_BASE_URL_TIWATER = import.meta.env.VITE_API_BASE_URL_TIWATER || `${API_BASE_URL}/tiwater`;
 
 // TI Water API Key for authentication (from environment variable)

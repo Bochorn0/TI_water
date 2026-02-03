@@ -7,6 +7,7 @@ import {
   Grid,
   Card,
   CardContent,
+  CardMedia,
   Button,
   TextField,
   Paper,
@@ -21,8 +22,21 @@ import {
   CircularProgress,
   Divider,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemText,
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, Search as SearchIcon } from '@mui/icons-material';
+import { 
+  Add as AddIcon, 
+  Delete as DeleteIcon, 
+  Search as SearchIcon,
+  Info as InfoIcon,
+  Close as CloseIcon 
+} from '@mui/icons-material';
 import { Header } from 'src/components/header';
 import { Footer } from 'src/components/footer';
 import { productService } from 'src/services/product.service';
@@ -36,6 +50,8 @@ export function CotizacionesPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [productModalOpen, setProductModalOpen] = useState(false);
 
   // Quote state
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
@@ -48,10 +64,14 @@ export function CotizacionesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  // Load products
+  // Load products on mount and when filters change
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    const timeoutId = setTimeout(() => {
+      fetchProducts();
+    }, 300); // Debounce search
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, selectedCategory]);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -95,9 +115,9 @@ export function CotizacionesPage() {
           category: product.category,
         },
         quantity: 1,
-        unitPrice: product.price || 0,
+        unitPrice: product.price || 0, // Price will be set manually in quote form
         discount: 0,
-        subtotal: product.price || 0,
+        subtotal: 0, // Will be calculated when user sets price in quote form
       };
       setQuoteItems([...quoteItems, newItem]);
     }
@@ -206,23 +226,19 @@ export function CotizacionesPage() {
               {/* Left Column - Products Catalog */}
               <Grid item xs={12} md={8}>
                 <Paper sx={{ p: 3, mb: 3 }}>
-                  <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                    <TextField
-                      fullWidth
-                      label="Buscar productos"
-                      variant="outlined"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      InputProps={{
-                        startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
-                      }}
-                    />
-                    <Button variant="contained" onClick={fetchProducts}>
-                      Buscar
-                    </Button>
-                  </Box>
+                  <TextField
+                    fullWidth
+                    label="Buscar productos"
+                    variant="outlined"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    InputProps={{
+                      startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+                    }}
+                    sx={{ mb: 3 }}
+                  />
 
-                  <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                  <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap' }}>
                     <Chip
                       label="Todos"
                       onClick={() => setSelectedCategory('')}
@@ -232,7 +248,7 @@ export function CotizacionesPage() {
                     {categories.map((cat) => (
                       <Chip
                         key={cat}
-                        label={cat.charAt(0).toUpperCase() + cat.slice(1)}
+                        label={cat.charAt(0).toUpperCase() + cat.slice(1).replace('_', ' ')}
                         onClick={() => setSelectedCategory(cat)}
                         color={selectedCategory === cat ? 'primary' : 'default'}
                         sx={{ cursor: 'pointer' }}
@@ -245,37 +261,123 @@ export function CotizacionesPage() {
                       <CircularProgress />
                     </Box>
                   ) : (
-                    <Grid container spacing={2}>
+                    <Grid container spacing={3}>
                       {products.map((product) => (
                         <Grid item xs={12} sm={6} md={4} key={product.id}>
-                          <Card>
-                            <CardContent>
-                              <Typography variant="h6" component="h3" gutterBottom>
+                          <Card 
+                            sx={{ 
+                              height: '100%',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              borderRadius: 3,
+                              boxShadow: 2,
+                              transition: 'transform 0.2s, box-shadow 0.2s',
+                              '&:hover': {
+                                transform: 'translateY(-4px)',
+                                boxShadow: 4,
+                              },
+                            }}
+                          >
+                            {/* Image placeholder - could be replaced with actual product image */}
+                            <Box
+                              sx={{
+                                width: '100%',
+                                height: 200,
+                                bgcolor: 'grey.100',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                position: 'relative',
+                                background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+                              }}
+                            >
+                              {product.images && product.images.length > 0 ? (
+                                <CardMedia
+                                  component="img"
+                                  image={product.images[0]}
+                                  alt={product.name}
+                                  sx={{ height: '100%', objectFit: 'contain' }}
+                                />
+                              ) : (
+                                <Typography variant="body2" color="text.secondary">
+                                  {product.code}
+                                </Typography>
+                              )}
+                              {product.pageNumber && (
+                                <Chip
+                                  label={`Pág. ${product.pageNumber}`}
+                                  size="small"
+                                  sx={{
+                                    position: 'absolute',
+                                    top: 8,
+                                    right: 8,
+                                    bgcolor: 'primary.main',
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                  }}
+                                />
+                              )}
+                            </Box>
+                            <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                              <Typography 
+                                variant="h6" 
+                                component="h3" 
+                                gutterBottom
+                                sx={{ 
+                                  fontWeight: 600,
+                                  color: 'text.primary',
+                                  mb: 1,
+                                }}
+                              >
                                 {product.name}
                               </Typography>
-                              <Typography variant="body2" color="text.secondary" gutterBottom>
+                              <Typography 
+                                variant="body2" 
+                                color="text.secondary" 
+                                gutterBottom
+                                sx={{ mb: 1 }}
+                              >
                                 Código: {product.code}
                               </Typography>
-                              {product.price && (
-                                <Typography variant="h6" color="primary" sx={{ my: 1 }}>
-                                  ${product.price.toLocaleString()}
-                                </Typography>
-                              )}
                               {product.description && (
-                                <Typography variant="body2" sx={{ mb: 2 }}>
-                                  {product.description.substring(0, 100)}
-                                  {product.description.length > 100 && '...'}
+                                <Typography 
+                                  variant="body2" 
+                                  sx={{ 
+                                    mb: 2,
+                                    color: 'text.secondary',
+                                    flexGrow: 1,
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                  }}
+                                >
+                                  {product.description}
                                 </Typography>
                               )}
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                startIcon={<AddIcon />}
-                                onClick={() => handleAddProduct(product)}
-                                fullWidth
-                              >
-                                Agregar
-                              </Button>
+                              <Box sx={{ display: 'flex', gap: 1, mt: 'auto' }}>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<InfoIcon />}
+                                  onClick={() => {
+                                    setSelectedProduct(product);
+                                    setProductModalOpen(true);
+                                  }}
+                                  sx={{ flex: 1 }}
+                                >
+                                  Detalles
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  startIcon={<AddIcon />}
+                                  onClick={() => handleAddProduct(product)}
+                                  sx={{ flex: 1 }}
+                                >
+                                  Agregar
+                                </Button>
+                              </Box>
                             </CardContent>
                           </Card>
                         </Grid>
@@ -449,6 +551,140 @@ export function CotizacionesPage() {
           </Container>
         </Box>
         <Footer />
+
+        {/* Product Details Modal */}
+        <Dialog
+          open={productModalOpen}
+          onClose={() => setProductModalOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h5" component="div">
+              {selectedProduct?.name}
+            </Typography>
+            <IconButton onClick={() => setProductModalOpen(false)}>
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers>
+            {selectedProduct && (
+              <Grid container spacing={3}>
+                {/* Product Image */}
+                <Grid item xs={12} md={4}>
+                  <Box
+                    sx={{
+                      width: '100%',
+                      height: 300,
+                      bgcolor: 'grey.100',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: 2,
+                      background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+                    }}
+                  >
+                    {selectedProduct.images && selectedProduct.images.length > 0 ? (
+                      <CardMedia
+                        component="img"
+                        image={selectedProduct.images[0]}
+                        alt={selectedProduct.name}
+                        sx={{ maxHeight: '100%', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        {selectedProduct.code}
+                      </Typography>
+                    )}
+                  </Box>
+                </Grid>
+
+                {/* Product Information */}
+                <Grid item xs={12} md={8}>
+                  <Typography variant="h6" gutterBottom>
+                    Información General
+                  </Typography>
+                  <List>
+                    <ListItem>
+                      <ListItemText 
+                        primary="Código" 
+                        secondary={selectedProduct.code}
+                      />
+                    </ListItem>
+                    <ListItem>
+                      <ListItemText 
+                        primary="Categoría" 
+                        secondary={selectedProduct.category?.replace('_', ' ').toUpperCase()}
+                      />
+                    </ListItem>
+                    {selectedProduct.catalogSource && (
+                      <ListItem>
+                        <ListItemText 
+                          primary="Catálogo" 
+                          secondary={selectedProduct.catalogSource}
+                        />
+                      </ListItem>
+                    )}
+                    {selectedProduct.pageNumber && (
+                      <ListItem>
+                        <ListItemText 
+                          primary="Página" 
+                          secondary={selectedProduct.pageNumber}
+                        />
+                      </ListItem>
+                    )}
+                  </List>
+
+                  {selectedProduct.description && (
+                    <>
+                      <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                        Descripción
+                      </Typography>
+                      <Typography variant="body1" color="text.secondary" paragraph>
+                        {selectedProduct.description}
+                      </Typography>
+                    </>
+                  )}
+
+                  {selectedProduct.specifications && Object.keys(selectedProduct.specifications).length > 0 && (
+                    <>
+                      <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                        Especificaciones Técnicas
+                      </Typography>
+                      <List>
+                        {Object.entries(selectedProduct.specifications).map(([key, value]) => (
+                          <ListItem key={key}>
+                            <ListItemText 
+                              primary={key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} 
+                              secondary={typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+                    </>
+                  )}
+                </Grid>
+              </Grid>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ p: 2 }}>
+            <Button onClick={() => setProductModalOpen(false)}>
+              Cerrar
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                if (selectedProduct) {
+                  handleAddProduct(selectedProduct);
+                  setProductModalOpen(false);
+                }
+              }}
+            >
+              Agregar a Cotización
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </>
   );
