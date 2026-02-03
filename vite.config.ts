@@ -14,8 +14,29 @@ const HTTPS_CONFIG =
       }
     : undefined;
 
+/** SPA fallback: serve index.html for client routes (e.g. /cotizaciones) when opening directly or refreshing */
+function spaFallback() {
+  return {
+    name: 'spa-fallback',
+    configureServer(server: any) {
+      server.middlewares.use((req: any, res: any, next: () => void) => {
+        if (req.url?.startsWith('/api') || req.url?.includes('.')) return next();
+        req.url = '/index.html';
+        next();
+      });
+    },
+    configurePreviewServer(server: any) {
+      server.middlewares.use((req: any, res: any, next: () => void) => {
+        if (req.url?.startsWith('/api') || req.url?.includes('.')) return next();
+        req.url = '/index.html';
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), spaFallback()],
   resolve: {
     alias: [
       {
