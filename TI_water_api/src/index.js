@@ -32,6 +32,9 @@ app.use('/api', apiLimiter);
 app.get('/health', (_req, res) => {
   res.json({ message: 'TI Water API Working' });
 });
+app.get('/api/v1.0/health', (_req, res) => {
+  res.json({ message: 'TI Water API Working', status: 'ok' });
+});
 
 app.use('/api/v1.0/auth', authRoutes);
 app.use('/api/v1.0/users', authenticate, requirePermission('/usuarios'), userRoutes);
