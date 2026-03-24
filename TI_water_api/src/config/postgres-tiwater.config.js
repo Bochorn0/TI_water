@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import pkg from 'pg';
 
 const { Pool } = pkg;
@@ -6,8 +7,21 @@ const isAzure = process.env.POSTGRES_SSL === 'true';
 const defaultTiwaterDb = isAzure ? 'postgres' : 'ti_water';
 const tiwaterDb = process.env.POSTGRES_TIWATER_DB || defaultTiwaterDb;
 
+const pgHost =
+  process.env.POSTGRES_TIWATER_HOST || process.env.POSTGRES_HOST || 'localhost';
+
+// Azure App Service sets WEBSITE_SITE_NAME; missing POSTGRES_* → ECONNREFUSED 127.0.0.1:5432
+if (
+  process.env.WEBSITE_SITE_NAME &&
+  (pgHost === 'localhost' || pgHost === '127.0.0.1')
+) {
+  console.error(
+    '[PostgreSQL TI_water] Host is localhost on App Service. Add Application settings: POSTGRES_HOST=tiwatermx-api-server.postgres.database.azure.com, POSTGRES_SSL=true, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, and POSTGRES_TIWATER_DB (same DB if one database).'
+  );
+}
+
 const pool = new Pool({
-  host: process.env.POSTGRES_TIWATER_HOST || process.env.POSTGRES_HOST || 'localhost',
+  host: pgHost,
   port: parseInt(process.env.POSTGRES_TIWATER_PORT || process.env.POSTGRES_PORT || '5432', 10),
   database: tiwaterDb,
   user: process.env.POSTGRES_TIWATER_USER || process.env.POSTGRES_USER || 'postgres',

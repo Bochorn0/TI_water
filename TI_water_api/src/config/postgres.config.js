@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import pkg from 'pg';
 import os from 'os';
 
@@ -7,8 +8,19 @@ const isAzure = process.env.POSTGRES_SSL === 'true';
 const defaultDb = isAzure ? 'postgres' : 'tiwater_timeseries';
 const db = process.env.POSTGRES_DB || defaultDb;
 
+const pgHost = process.env.POSTGRES_HOST || 'localhost';
+
+if (
+  process.env.WEBSITE_SITE_NAME &&
+  (pgHost === 'localhost' || pgHost === '127.0.0.1')
+) {
+  console.error(
+    '[PostgreSQL] Host is localhost on App Service. Set POSTGRES_HOST to your Flexible Server FQDN (e.g. tiwatermx-api-server.postgres.database.azure.com), POSTGRES_SSL=true, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD.'
+  );
+}
+
 const pool = new Pool({
-  host: process.env.POSTGRES_HOST || 'localhost',
+  host: pgHost,
   port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
   database: db,
   user: process.env.POSTGRES_USER || os.userInfo().username,
