@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
@@ -22,12 +22,23 @@ app.use(morgan('dev'));
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
+/** Azure / some proxies set req.ip as "a.b.c.d:port"; express-rate-limit rejects that */
+function clientIpForRateLimit(req) {
+  const raw = req.ip || req.socket?.remoteAddress || 'unknown';
+  if (typeof raw !== 'string') return 'unknown';
+  if (/^\d{1,3}(?:\.\d{1,3}){3}:\d+$/.test(raw)) {
+    return raw.slice(0, raw.lastIndexOf(':'));
+  }
+  return raw;
+}
+
 const apiLimiter = rateLimit({
   windowMs: parseInt(process.env.API_RATE_LIMIT_WINDOW_MS || '60000', 10),
   max: parseInt(process.env.API_RATE_LIMIT_MAX || '100', 10),
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: 'Demasiadas solicitudes. Intente de nuevo mas tarde.' }
+  message: { success: false, message: 'Demasiadas solicitudes. Intente de nuevo mas tarde.' },
+  keyGenerator: (req) => ipKeyGenerator(clientIpForRateLimit(req)),
 });
 
 app.use('/api', apiLimiter);
