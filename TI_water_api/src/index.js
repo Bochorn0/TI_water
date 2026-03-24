@@ -13,6 +13,9 @@ import { authenticate, requirePermission } from './middlewares/auth.middleware.j
 
 const app = express();
 
+// Azure App Service (and similar) send X-Forwarded-*; required so express-rate-limit can identify clients
+app.set('trust proxy', process.env.TRUST_PROXY === 'false' ? false : 1);
+
 app.use(cors());
 app.use(helmet());
 app.use(morgan('dev'));
