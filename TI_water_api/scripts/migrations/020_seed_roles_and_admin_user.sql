@@ -1,6 +1,6 @@
 -- Migration: Seed default roles and default client for admin
 -- Run after 018 and 019
--- Admin user is created by scripts/seed-admin-user.js (uses bcrypt)
+-- Admin login user: migration 022 (admin@tiwater.mx) and/or scripts/seed-admin-user.js
 
 -- Insert default roles if not exist
 INSERT INTO roles (name, protected, permissions, dashboard_version)

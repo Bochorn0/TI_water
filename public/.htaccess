@@ -1,5 +1,6 @@
-# TI Water SPA - Apache config for tiwater.mx
-# Ensures client routes (/, /cotizaciones, /contact, etc.) serve index.html
+# Apache only (e.g. some PHP/cPanel hosts). Azure Static Web Apps ignores this file —
+# use public/staticwebapp.config.json (copied to dist) for SWA SPA fallback.
+# TI Water SPA: client routes serve index.html
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
