@@ -8,5 +8,6 @@ INSERT INTO tiwater_migrations (name) VALUES
   ('019_create_users_table.sql'),
   ('020_seed_roles_and_admin_user.sql'),
   ('004_create_tiwater_products_table.sql'),
-  ('005_create_tiwater_quotes_table.sql')
+  ('005_create_tiwater_quotes_table.sql'),
+  ('021_add_tiwater_catalog_permission.sql')
 ON CONFLICT (name) DO NOTHING;

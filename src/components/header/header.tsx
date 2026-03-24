@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
@@ -18,6 +18,8 @@ import {
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import logoImage from '/assets/ti-water-logo.png';
+import { useAuth } from 'src/auth/auth-context';
+import { canManageTiwaterCatalog } from 'src/auth/permissions';
 
 interface Props {
   window?: () => Window;
@@ -39,9 +41,18 @@ function HideOnScroll(props: Props) {
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const showAdminCatalog = canManageTiwaterCatalog(user);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+    setMobileOpen(false);
   };
 
   const menuItems = [
@@ -80,6 +91,27 @@ export function Header() {
           </ListItem>
         ))}
       </List>
+      <Box sx={{ px: 2, pb: 1 }}>
+        {showAdminCatalog ? (
+          <>
+            <Button
+              fullWidth
+              component={Link}
+              to="/admin/catalogo"
+              sx={{ color: 'white', mb: 1 }}
+            >
+              Catálogo (admin)
+            </Button>
+            <Button fullWidth onClick={handleLogout} sx={{ color: 'white', mb: 1 }}>
+              Cerrar sesión
+            </Button>
+          </>
+        ) : (
+          <Button fullWidth component={Link} to="/login" sx={{ color: 'white', mb: 1 }}>
+            Acceso admin
+          </Button>
+        )}
+      </Box>
       <Button
         variant="contained"
         color="primary"
@@ -129,7 +161,27 @@ export function Header() {
               ))}
             </Box>
 
-            <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
+            <Box
+              sx={{
+                display: { xs: 'none', md: 'flex' },
+                alignItems: 'center',
+                gap: 1,
+              }}
+            >
+              {showAdminCatalog ? (
+                <>
+                  <Button color="inherit" component={Link} to="/admin/catalogo">
+                    Catálogo
+                  </Button>
+                  <Button color="inherit" onClick={handleLogout}>
+                    Salir
+                  </Button>
+                </>
+              ) : (
+                <Button color="inherit" component={Link} to="/login">
+                  Admin
+                </Button>
+              )}
               <Button variant="contained" color="primary" component={Link} to="/cotizaciones" sx={{ px: 3 }}>
                 ¡Cotiza!
               </Button>

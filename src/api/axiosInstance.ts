@@ -3,6 +3,7 @@
 
 import axios from 'axios';
 import { CONFIG } from '../config-global';
+import { AUTH_TOKEN_KEY } from '../auth/auth-storage';
 
 const axiosInstance = axios.create({
   baseURL: CONFIG.API_BASE_URL_TIWATER,
@@ -10,6 +11,14 @@ const axiosInstance = axios.create({
     'Content-Type': 'application/json',
     'X-TIWater-API-Key': CONFIG.TIWATER_API_KEY,
   },
+});
+
+axiosInstance.interceptors.request.use((config) => {
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem(AUTH_TOKEN_KEY) : null;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
 // Response interceptor for error handling

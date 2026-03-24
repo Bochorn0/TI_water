@@ -27,7 +27,7 @@ jobs:
           lfs: false
 
       # Build on the runner so VITE_* are injected (Oryx often does not see job env).
-      # VITE_API_BASE_URL example: https://tiwatermx-api-hgaua5f6bycshrc5.australiaeast-01.azurewebsites.net/api/v2.0
+      # VITE_API_BASE_URL example: https://<app>.azurewebsites.net/api/v1.0
       - uses: actions/setup-node@v4
         with:
           node-version: '20'

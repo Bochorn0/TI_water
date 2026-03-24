@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * Seed admin user (admin@lcc.com.mx / admin)
+ * Seed mock admin for tiwater.mx (default admin@tiwater.mx / admin)
  * Run after migrations 018, 019, 020
- * Usage: node scripts/seed-admin-user.js
+ * Usage: ADMIN_EMAIL=you@x.com ADMIN_PASSWORD=secret node scripts/seed-admin-user.js
  */
 
 import 'dotenv/config';
 import bcrypt from 'bcrypt';
 import { query } from '../src/config/postgres.config.js';
 
-const ADMIN_EMAIL = 'admin@lcc.com.mx';
-const ADMIN_PASSWORD = 'admin';
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'admin@tiwater.mx').toLowerCase().trim();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
 
 async function seedAdminUser() {
   try {
@@ -43,7 +43,7 @@ async function seedAdminUser() {
       [ADMIN_EMAIL, passwordHash, roleId, clientId, clientId]
     );
 
-    console.log('✅ Admin user created: admin@lcc.com.mx / admin');
+    console.log(`✅ Admin user created: ${ADMIN_EMAIL} / (password from ADMIN_PASSWORD or default)`);
   } catch (err) {
     console.error('❌ Seed failed:', err.message);
     process.exit(1);

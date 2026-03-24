@@ -29,6 +29,7 @@ const MIGRATIONS = [
   'scripts/migrations/020_seed_roles_and_admin_user.sql',
   'scripts/migrations/004_create_tiwater_products_table.sql',
   'scripts/migrations/005_create_tiwater_quotes_table.sql',
+  'scripts/migrations/021_add_tiwater_catalog_permission.sql',
 ];
 
 const ENSURE_LEDGER_SQL = `
