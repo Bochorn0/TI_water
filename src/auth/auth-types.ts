@@ -10,6 +10,7 @@ export interface AuthUser {
   email: string;
   nombre?: string;
   puesto?: string;
+  avatar?: string;
   role: AuthRole;
 }
 

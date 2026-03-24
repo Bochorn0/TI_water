@@ -15,6 +15,8 @@ type AuthContextValue = {
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  /** Replace stored user (e.g. after PATCH /auth/me) */
+  setUser: (user: AuthUser) => void;
   isAuthenticated: boolean;
 };
 
@@ -53,15 +55,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const setUserPersist = useCallback((next: AuthUser) => {
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(next));
+    setUser(next);
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
       token,
       login,
       logout,
+      setUser: setUserPersist,
       isAuthenticated: Boolean(token && user),
     }),
-    [user, token, login, logout],
+    [user, token, login, logout, setUserPersist],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

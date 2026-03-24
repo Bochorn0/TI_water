@@ -23,7 +23,7 @@ export function LoginPage() {
   const from =
     state?.from && state.from.startsWith('/') && !state.from.startsWith('/login')
       ? state.from
-      : '/admin/catalogo';
+      : '/admin';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

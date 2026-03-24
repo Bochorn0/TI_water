@@ -19,7 +19,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import logoImage from '/assets/ti-water-logo.png';
 import { useAuth } from 'src/auth/auth-context';
-import { canManageTiwaterCatalog } from 'src/auth/permissions';
+import { AccountMenu } from './account-menu';
 
 interface Props {
   window?: () => Window;
@@ -41,9 +41,8 @@ function HideOnScroll(props: Props) {
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-  const showAdminCatalog = canManageTiwaterCatalog(user);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -91,23 +90,21 @@ export function Header() {
           </ListItem>
         ))}
       </List>
-      <Box sx={{ px: 2, pb: 1 }}>
-        {showAdminCatalog ? (
+      <Box sx={{ px: 2, pb: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {isAuthenticated ? (
           <>
-            <Button
-              fullWidth
-              component={Link}
-              to="/admin/catalogo"
-              sx={{ color: 'white', mb: 1 }}
-            >
-              Catálogo (admin)
+            <Button fullWidth component={Link} to="/admin" sx={{ color: 'white' }}>
+              Herramientas admin
             </Button>
-            <Button fullWidth onClick={handleLogout} sx={{ color: 'white', mb: 1 }}>
+            <Button fullWidth component={Link} to="/admin/ajustes" sx={{ color: 'white' }}>
+              Mi cuenta
+            </Button>
+            <Button fullWidth onClick={handleLogout} sx={{ color: 'white' }}>
               Cerrar sesión
             </Button>
           </>
         ) : (
-          <Button fullWidth component={Link} to="/login" sx={{ color: 'white', mb: 1 }}>
+          <Button fullWidth component={Link} to="/login" sx={{ color: 'white' }}>
             Acceso admin
           </Button>
         )}
@@ -161,30 +158,17 @@ export function Header() {
               ))}
             </Box>
 
-            <Box
-              sx={{
-                display: { xs: 'none', md: 'flex' },
-                alignItems: 'center',
-                gap: 1,
-              }}
-            >
-              {showAdminCatalog ? (
-                <>
-                  <Button color="inherit" component={Link} to="/admin/catalogo">
-                    Catálogo
-                  </Button>
-                  <Button color="inherit" onClick={handleLogout}>
-                    Salir
-                  </Button>
-                </>
-              ) : (
-                <Button color="inherit" component={Link} to="/login">
-                  Admin
-                </Button>
-              )}
+            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
               <Button variant="contained" color="primary" component={Link} to="/cotizaciones" sx={{ px: 3 }}>
                 ¡Cotiza!
               </Button>
+              {isAuthenticated ? (
+                <AccountMenu />
+              ) : (
+                <Button color="inherit" component={Link} to="/login" sx={{ fontWeight: 500 }}>
+                  Admin
+                </Button>
+              )}
             </Box>
 
             <IconButton
@@ -212,4 +196,3 @@ export function Header() {
     </HideOnScroll>
   );
 }
-

@@ -100,3 +100,57 @@ export const loginUser = [
     }
   },
 ];
+
+/**
+ * Update current user profile (JWT). No /usuarios permission required.
+ * Body: nombre?, puesto?, avatar?, password? (requires currentPassword)
+ */
+export async function updateMyProfile(req, res) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'No autorizado' });
+
+    const { nombre, puesto, avatar, password, currentPassword } = req.body || {};
+
+    const user = await UserModel.findById(userId);
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+    const data = {};
+
+    if (nombre !== undefined) data.nombre = String(nombre);
+    if (puesto !== undefined) data.puesto = String(puesto);
+
+    if (avatar !== undefined && avatar !== null) {
+      if (typeof avatar === 'string' && avatar.startsWith('data:image/')) {
+        const base64Data = avatar.split(',')[1];
+        const bufferLength = Buffer.byteLength(base64Data, 'base64');
+        if (bufferLength > 2048 * 1024) {
+          return res.status(400).json({ message: 'La imagen de perfil es demasiado grande' });
+        }
+      }
+      data.avatar = avatar;
+    }
+
+    if (password !== undefined && password !== null && String(password).trim() !== '') {
+      if (!currentPassword || String(currentPassword).trim() === '') {
+        return res.status(400).json({ message: 'Indica la contraseña actual para cambiarla' });
+      }
+      const ok = await bcrypt.compare(String(currentPassword).trim(), user.password);
+      if (!ok) return res.status(401).json({ message: 'Contraseña actual incorrecta' });
+      data.password = await bcrypt.hash(String(password).trim(), 10);
+    }
+
+    if (Object.keys(data).length === 0) {
+      return res.json({ user: toUserResponse({ ...user, role_id: user.role_id }) });
+    }
+
+    const updated = await UserModel.update(userId, data);
+    if (!updated) return res.status(500).json({ message: 'Error al actualizar' });
+
+    const fresh = await UserModel.findById(userId);
+    res.json({ user: toUserResponse({ ...fresh, role_id: fresh.role_id }) });
+  } catch (error) {
+    console.error('updateMyProfile Error:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+}
