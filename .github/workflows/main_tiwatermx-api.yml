@@ -58,6 +58,9 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_23A0C6807B974C208B09317A724A1CF3 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_1AC08C5A69B44FE891106D65BDA6D345 }}
 
+      # Migrations run on the Web App process (not on GitHub runners) so a private
+      # VNet–only PostgreSQL is reachable using the same POSTGRES_* env as the API.
+      # Scripts are idempotent (IF NOT EXISTS). Ensure App Service has POSTGRES_* set.
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
@@ -65,4 +68,4 @@ jobs:
           app-name: 'tiwatermx-api'
           slot-name: 'Production'
           package: .
-          startup-command: 'node src/index.js'
+          startup-command: 'node scripts/migrations/run-all-migrations.js && node src/index.js'

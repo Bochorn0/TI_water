@@ -15,6 +15,8 @@
 #
 # This workflow sets POSTGRES_SSL=true for Azure PostgreSQL. For a non-TLS DB, run
 # `npm run migrate:all:node` locally with a .env instead.
+#
+# The runner records applied files in table tiwater_migrations (see run-all-migrations.js).
 
 name: TI Water API — migrate database
 

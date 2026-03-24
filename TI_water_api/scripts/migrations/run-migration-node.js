@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Run one PostgreSQL migration with pg (SSL for Azure).
+ * Does not update tiwater_migrations; use run-all-migrations.js for tracked runs.
  * Usage: from TI_water_api root: node scripts/migrations/run-migration-node.js <path-to.sql>
  */
 

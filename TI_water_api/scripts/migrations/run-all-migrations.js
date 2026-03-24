@@ -1,20 +1,26 @@
 #!/usr/bin/env node
 /**
- * Run all TI_water_api migrations in order against POSTGRES_* (single DB).
- * Use with POSTGRES_SSL=true for Azure. Requires network path from runner to server.
+ * Ordered migrations with a tiwater_migrations ledger (name + executed_at).
+ * Each file runs in a transaction; on success a row is inserted. Already-recorded
+ * names are skipped. Uses pg_advisory_lock so concurrent app instances do not
+ * race on the same migration.
  *
+ * Env: POSTGRES_* (POSTGRES_SSL=true for Azure).
  * Usage (from TI_water_api): node scripts/migrations/run-all-migrations.js
  */
 
 import 'dotenv/config';
 import { readFileSync } from 'fs';
+import { basename, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 import pkg from 'pg';
 
 const { Client } = pkg;
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const API_DIR = join(__dirname, '../..');
+
+/** Advisory lock key (arbitrary); serializes migration runs across instances */
+const MIGRATION_LOCK_KEY = 0x74697761; // "tiwa"
 
 const MIGRATIONS = [
   'scripts/migrations/007_create_clients_table.sql',
@@ -24,6 +30,15 @@ const MIGRATIONS = [
   'scripts/migrations/004_create_tiwater_products_table.sql',
   'scripts/migrations/005_create_tiwater_quotes_table.sql',
 ];
+
+const ENSURE_LEDGER_SQL = `
+CREATE TABLE IF NOT EXISTS tiwater_migrations (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tiwater_migrations_executed_at ON tiwater_migrations (executed_at DESC);
+`;
 
 async function main() {
   const client = new Client({
@@ -37,17 +52,50 @@ async function main() {
     ssl: process.env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: false } : false,
   });
 
-  await client.connect();
   try {
-    for (const rel of MIGRATIONS) {
-      const fullPath = join(API_DIR, rel);
-      const sql = readFileSync(fullPath, 'utf8');
-      console.log('Running:', rel);
-      await client.query(sql);
+    await client.connect();
+    await client.query(ENSURE_LEDGER_SQL);
+
+    await client.query('SELECT pg_advisory_lock($1)', [MIGRATION_LOCK_KEY]);
+    try {
+      for (const rel of MIGRATIONS) {
+        const name = basename(rel);
+        const { rowCount } = await client.query(
+          'SELECT 1 FROM tiwater_migrations WHERE name = $1',
+          [name],
+        );
+        if (rowCount > 0) {
+          console.log('[skip] already applied:', name);
+          continue;
+        }
+
+        const fullPath = join(API_DIR, rel);
+        const sql = readFileSync(fullPath, 'utf8');
+        console.log('[run]', name);
+
+        try {
+          await client.query('BEGIN');
+          await client.query(sql);
+          await client.query(
+            'INSERT INTO tiwater_migrations (name) VALUES ($1)',
+            [name],
+          );
+          await client.query('COMMIT');
+          console.log('[ok]', name);
+        } catch (err) {
+          await client.query('ROLLBACK');
+          throw err;
+        }
+      }
+      console.log('\n✅ Migrations finished (pending runs applied; rest skipped).');
+    } finally {
+      await client.query('SELECT pg_advisory_unlock($1)', [MIGRATION_LOCK_KEY]);
     }
-    console.log('\n✅ All migrations finished.');
+  } catch (err) {
+    console.error(err);
+    process.exitCode = 1;
   } finally {
-    await client.end();
+    await client.end().catch(() => {});
   }
 }
 
