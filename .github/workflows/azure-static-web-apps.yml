@@ -26,17 +26,28 @@ jobs:
           submodules: true
           lfs: false
 
-      - name: Build And Deploy
+      # Build on the runner so VITE_* are injected (Oryx often does not see job env)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install and build frontend
+        run: npm ci && npm run build
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_API_BASE_URL_TIWATER: ${{ secrets.VITE_API_BASE_URL_TIWATER }}
+          VITE_TIWATER_API_KEY: ${{ secrets.VITE_TIWATER_API_KEY }}
+
+      - name: Deploy to Azure Static Web Apps
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           action: "upload"
-          ###### Repository/Build Configurations ######
-          app_location: "/"
+          skip_app_build: true
+          app_location: "dist"
           api_location: ""
-          output_location: "dist"
-          ###### End of Repository/Build Configurations ######
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
@@ -48,4 +59,5 @@ jobs:
         uses: Azure/static-web-apps-deploy@v1
         with:
           action: "close"
+          app_location: "/"
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}

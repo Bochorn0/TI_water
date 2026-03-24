@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
 import roleRoutes from './routes/role.routes.js';
 import tiwaterQuoteRoutes from './routes/tiwater-quote.routes.js';
+import tiwaterProductRoutes from './routes/tiwater-product.routes.js';
 import { authenticate, requirePermission } from './middlewares/auth.middleware.js';
 
 const app = express();
@@ -53,6 +54,7 @@ app.get('/api/v1.0/health', (_req, res) => {
 app.use('/api/v1.0/auth', authRoutes);
 app.use('/api/v1.0/users', authenticate, requirePermission('/usuarios'), userRoutes);
 app.use('/api/v1.0/roles', authenticate, requirePermission('/usuarios'), roleRoutes);
+app.use('/api/v2.0/tiwater/products', tiwaterProductRoutes);
 app.use('/api/v2.0/tiwater/quotes', tiwaterQuoteRoutes);
 
 app.use((err, _req, res, _next) => {
