@@ -5,7 +5,9 @@ const { Pool } = pkg;
 
 const isAzure = process.env.POSTGRES_SSL === 'true';
 const defaultTiwaterDb = isAzure ? 'postgres' : 'ti_water';
-const tiwaterDb = process.env.POSTGRES_TIWATER_DB || defaultTiwaterDb;
+// Prefer explicit POSTGRES_TIWATER_DB; else same DB as main pool (single Azure DB is typical)
+const tiwaterDb =
+  process.env.POSTGRES_TIWATER_DB || process.env.POSTGRES_DB || defaultTiwaterDb;
 
 const pgHost =
   process.env.POSTGRES_TIWATER_HOST || process.env.POSTGRES_HOST || 'localhost';
