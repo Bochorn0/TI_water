@@ -63,6 +63,14 @@ app.use((err, _req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 3009;
+
+if (!process.env.SECRET_KEY?.trim()) {
+  console.error(
+    '[FATAL] SECRET_KEY is not set. JWT login will fail. In Azure: App Service → Configuration → Application settings → add SECRET_KEY (e.g. run locally: openssl rand -hex 32).',
+  );
+  process.exit(1);
+}
+
 app.listen(PORT, () => {
   console.log(`TI Water API running on port ${PORT}`);
 });
