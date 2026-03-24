@@ -26,14 +26,10 @@ export function Router() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/admin/catalogo/nuevo"
-        element={
-          <ProtectedRoute>
-            <TiwaterCatalogProductAdminPage />
-          </ProtectedRoute>
-        }
-      />
+      {/*
+        Single dynamic segment so :id is "nuevo" for new product (useParams().id required).
+        A literal /admin/catalogo/nuevo route would leave id undefined and the form stuck loading.
+      */}
       <Route
         path="/admin/catalogo/:id"
         element={
