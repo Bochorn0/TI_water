@@ -1,15 +1,19 @@
-name: Azure Static Web Apps CI/CD
+name: Azure Static Web Apps CI/CD (frontend)
 
 on:
   push:
     branches:
       - main
       - PROD-Catalogos_v1
+    paths-ignore:
+      - 'TI_water_api/**'
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
       - main
       - PROD-Catalogos_v1
+    paths-ignore:
+      - 'TI_water_api/**'
 
 jobs:
   build_and_deploy_job:
