@@ -1,0 +1,30 @@
+{
+  "name": "ti-water-api",
+  "version": "1.0.0",
+  "description": "TI Water dedicated API (quotes + auth/users/roles)",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "migrate:auth": "bash scripts/migrations/run-migration.sh scripts/migrations/007_create_clients_table.sql && bash scripts/migrations/run-migration.sh scripts/migrations/018_create_roles_table.sql && bash scripts/migrations/run-migration.sh scripts/migrations/019_create_users_table.sql && bash scripts/migrations/run-migration.sh scripts/migrations/020_seed_roles_and_admin_user.sql",
+    "migrate:quotes": "bash scripts/migrations/run-tiwater-migration.sh scripts/migrations/004_create_tiwater_products_table.sql && bash scripts/migrations/run-tiwater-migration.sh scripts/migrations/005_create_tiwater_quotes_table.sql",
+    "migrate:all": "yarn migrate:auth && yarn migrate:quotes",
+    "seed:admin": "node scripts/seed-admin-user.js"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.18.2",
+    "express-rate-limit": "^8.3.1",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

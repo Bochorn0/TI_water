@@ -1,0 +1,17 @@
+# TI Water SPA - Apache config for tiwater.mx
+# Ensures client routes (/, /cotizaciones, /contact, etc.) serve index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Don't rewrite files or directories
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  # Send all other requests to index.html (SPA)
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Optional: prevent directory listing
+Options -Indexes
