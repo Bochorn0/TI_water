@@ -1,0 +1,49 @@
+# Run TI_water_api SQL migrations from GitHub Actions (manual trigger).
+#
+# Network: ubuntu-latest runners are on the public internet. If Azure PostgreSQL
+# Flexible Server is private-only (VNet), this job cannot reach the server unless you
+# use a self-hosted runner in the VNet, temporarily allow public access + firewall,
+# or run migrations from Cloud Shell / VPN / App Service instead.
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   MIGRATION_POSTGRES_HOST
+#   MIGRATION_POSTGRES_DB
+#   MIGRATION_POSTGRES_USER
+#   MIGRATION_POSTGRES_PASSWORD
+# Optional:
+#   MIGRATION_POSTGRES_PORT (defaults to 5432 in the script if unset)
+#
+# This workflow sets POSTGRES_SSL=true for Azure PostgreSQL. For a non-TLS DB, run
+# `npm run migrate:all:node` locally with a .env instead.
+
+name: TI Water API — migrate database
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: TI_water_api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: TI_water_api/package-lock.json
+
+      - run: npm ci --omit=dev
+
+      - name: Run all migrations (Node + SSL)
+        env:
+          POSTGRES_HOST: ${{ secrets.MIGRATION_POSTGRES_HOST }}
+          POSTGRES_DB: ${{ secrets.MIGRATION_POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.MIGRATION_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.MIGRATION_POSTGRES_PASSWORD }}
+          POSTGRES_PORT: ${{ secrets.MIGRATION_POSTGRES_PORT }}
+          POSTGRES_SSL: "true"
+        run: node scripts/migrations/run-all-migrations.js
