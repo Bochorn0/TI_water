@@ -1,74 +1,329 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Box, Tab, Tabs } from '@mui/material';
-import { Header } from 'src/components/header';
+import {
+  AppBar,
+  Badge,
+  Box,
+  Chip,
+  Divider,
+  Drawer,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Toolbar,
+  Tooltip,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
+import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
+import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
+import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
+import SearchIcon from '@mui/icons-material/Search';
+import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import { useAuth } from 'src/auth/auth-context';
 import {
   canManageTiwaterCatalog,
   canManageTiwaterQuotes,
   canManageUsersAndRoles,
 } from 'src/auth/permissions';
+import { quoteService } from 'src/services/quote.service';
+import { AccountMenu } from 'src/components/header/account-menu';
 
-function tabValue(pathname: string): string {
-  if (pathname.startsWith('/admin/catalogo')) return 'catalogo';
-  if (pathname.startsWith('/admin/cotizaciones')) return 'cotizaciones';
-  if (pathname.startsWith('/admin/usuarios')) return 'usuarios';
-  if (pathname.startsWith('/admin/roles')) return 'roles';
-  if (pathname.startsWith('/admin/ajustes')) return 'ajustes';
-  return 'catalogo';
-}
+const DRAWER_WIDTH = 260;
+
+type NavItem = {
+  label: string;
+  path: string;
+  icon: React.ReactNode;
+  show: boolean;
+  match: (pathname: string) => boolean;
+};
 
 export function AdminLayout() {
-  const { user } = useAuth();
+  const theme = useTheme();
+  const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
   const location = useLocation();
   const navigate = useNavigate();
-  const showUsers = canManageUsersAndRoles(user);
+  const { user } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [pendingQuotes, setPendingQuotes] = useState<number | null>(null);
+
   const showCatalog = canManageTiwaterCatalog(user);
   const showQuotes = canManageTiwaterQuotes(user);
-  const current = tabValue(location.pathname);
+  const showUsers = canManageUsersAndRoles(user);
 
-  const handleTabChange = (_: React.SyntheticEvent, value: string) => {
-    const paths: Record<string, string> = {
-      catalogo: '/admin/catalogo',
-      cotizaciones: '/admin/cotizaciones',
-      usuarios: '/admin/usuarios',
-      roles: '/admin/roles',
-      ajustes: '/admin/ajustes',
+  useEffect(() => {
+    if (!showQuotes) {
+      setPendingQuotes(null);
+      return;
+    }
+    let cancelled = false;
+    quoteService
+      .getStats()
+      .then((s) => {
+        if (!cancelled) setPendingQuotes(s.byStatus?.pendiente ?? 0);
+      })
+      .catch(() => {
+        if (!cancelled) setPendingQuotes(null);
+      });
+    return () => {
+      cancelled = true;
     };
-    const to = paths[value];
-    if (to) navigate(to);
+  }, [showQuotes, location.pathname]);
+
+  const navItems: NavItem[] = useMemo(
+    () => [
+      {
+        label: 'Resumen',
+        path: '/admin',
+        icon: <DashboardRoundedIcon />,
+        show: true,
+        match: (p) => p === '/admin' || p === '/admin/',
+      },
+      {
+        label: 'Catálogo',
+        path: '/admin/catalogo',
+        icon: <Inventory2OutlinedIcon />,
+        show: showCatalog,
+        match: (p) => p.startsWith('/admin/catalogo'),
+      },
+      {
+        label: 'Cotizaciones',
+        path: '/admin/cotizaciones',
+        icon: <RequestQuoteIcon />,
+        show: showQuotes,
+        match: (p) => p.startsWith('/admin/cotizaciones'),
+      },
+      {
+        label: 'Usuarios',
+        path: '/admin/usuarios',
+        icon: <PeopleOutlineIcon />,
+        show: showUsers,
+        match: (p) => p.startsWith('/admin/usuarios'),
+      },
+      {
+        label: 'Roles',
+        path: '/admin/roles',
+        icon: <AdminPanelSettingsOutlinedIcon />,
+        show: showUsers,
+        match: (p) => p.startsWith('/admin/roles'),
+      },
+      {
+        label: 'Mi cuenta',
+        path: '/admin/ajustes',
+        icon: <PersonOutlineIcon />,
+        show: true,
+        match: (p) => p.startsWith('/admin/ajustes'),
+      },
+    ],
+    [showCatalog, showQuotes, showUsers],
+  );
+
+  const visibleNav = navItems.filter((n) => n.show);
+
+  const handleNav = (path: string) => {
+    navigate(path);
+    setMobileOpen(false);
   };
 
+  const drawer = (
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', pt: 2, pb: 2 }}>
+      <Box sx={{ px: 2.5, mb: 3 }}>
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: 800,
+            color: '#f8fafc',
+            letterSpacing: '-0.03em',
+            lineHeight: 1.2,
+          }}
+        >
+          TI Water
+        </Typography>
+        <Typography variant="caption" sx={{ color: 'rgba(248, 250, 252, 0.55)', display: 'block', mt: 0.5 }}>
+          Panel administrativo
+        </Typography>
+      </Box>
+      <Divider sx={{ borderColor: 'rgba(148, 163, 184, 0.15)', mx: 2 }} />
+      <List sx={{ px: 1.5, pt: 2, flex: 1 }}>
+        {visibleNav.map((item) => {
+          const selected = item.match(location.pathname);
+          return (
+            <ListItemButton
+              key={item.path + item.label}
+              selected={selected}
+              onClick={() => handleNav(item.path)}
+              sx={{
+                borderRadius: 2,
+                mb: 0.5,
+                py: 1.25,
+                color: 'rgba(248, 250, 252, 0.85)',
+                '&.Mui-selected': {
+                  bgcolor: 'rgba(10, 124, 255, 0.18)',
+                  color: '#fff',
+                  borderLeft: '3px solid',
+                  borderColor: 'primary.main',
+                  pl: 1.25,
+                },
+                '&:hover': {
+                  bgcolor: 'rgba(148, 163, 184, 0.12)',
+                },
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>{item.icon}</ListItemIcon>
+              <ListItemText
+                primary={item.label}
+                primaryTypographyProps={{ fontWeight: selected ? 700 : 500, fontSize: '0.9375rem' }}
+              />
+              {item.path === '/admin/cotizaciones' && pendingQuotes != null && pendingQuotes > 0 && (
+                <Chip label={pendingQuotes} size="small" color="warning" sx={{ height: 22, fontSize: '0.7rem' }} />
+              )}
+            </ListItemButton>
+          );
+        })}
+      </List>
+      <Box sx={{ px: 2, pt: 1 }}>
+        <Typography variant="caption" sx={{ color: 'rgba(148, 163, 184, 0.7)', display: 'block' }}>
+          Solo visible para usuarios con acceso
+        </Typography>
+      </Box>
+    </Box>
+  );
+
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'grey.50' }}>
-      <Header />
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f1f5f9' }}>
+      <AppBar
+        position="fixed"
+        elevation={0}
+        sx={{
+          display: { md: 'none' },
+          bgcolor: '#0f172a',
+          color: '#f8fafc',
+          borderBottom: '1px solid rgba(148, 163, 184, 0.12)',
+        }}
+      >
+        <Toolbar sx={{ gap: 1 }}>
+          <IconButton color="inherit" edge="start" onClick={() => setMobileOpen(true)} aria-label="abrir menú">
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="subtitle1" fontWeight={700} sx={{ flex: 1 }}>
+            Admin
+          </Typography>
+          <AccountMenu />
+        </Toolbar>
+      </AppBar>
+
+      <Drawer
+        variant={isMdUp ? 'permanent' : 'temporary'}
+        open={isMdUp ? true : mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          width: DRAWER_WIDTH,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: DRAWER_WIDTH,
+            boxSizing: 'border-box',
+            bgcolor: '#0f172a',
+            borderRight: 'none',
+            backgroundImage: 'linear-gradient(180deg, rgba(10, 124, 255, 0.06) 0%, transparent 35%)',
+          },
+        }}
+      >
+        {drawer}
+      </Drawer>
+
       <Box
         component="main"
         sx={{
-          flex: 1,
-          mt: '100px',
-          px: { xs: 1, sm: 2 },
-          pb: 4,
-          maxWidth: 1200,
-          mx: 'auto',
-          width: '100%',
+          flexGrow: 1,
+          width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper', borderRadius: 1, px: 1, mb: 2 }}>
-          <Tabs
-            value={current}
-            onChange={handleTabChange}
-            variant="scrollable"
-            scrollButtons="auto"
-            aria-label="Herramientas de administración"
-          >
-            {showCatalog && <Tab label="Catálogo" value="catalogo" id="admin-tab-catalogo" />}
-            {showQuotes && <Tab label="Cotizaciones" value="cotizaciones" id="admin-tab-cotizaciones" />}
-            {showUsers && <Tab label="Usuarios" value="usuarios" id="admin-tab-usuarios" />}
-            {showUsers && <Tab label="Roles" value="roles" id="admin-tab-roles" />}
-            <Tab label="Cuenta" value="ajustes" id="admin-tab-ajustes" />
-          </Tabs>
+        <AppBar
+          position="sticky"
+          elevation={0}
+          sx={{
+            display: { xs: 'none', md: 'block' },
+            bgcolor: 'rgba(255, 255, 255, 0.92)',
+            backdropFilter: 'blur(8px)',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Toolbar sx={{ minHeight: 72, gap: 2, py: 1 }}>
+            <Box sx={{ flex: 1, maxWidth: 420 }}>
+              <Box
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  px: 1.5,
+                  py: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  bgcolor: 'grey.50',
+                }}
+              >
+                <SearchIcon sx={{ color: 'text.secondary', mr: 1, fontSize: 22 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Buscar en el panel…
+                </Typography>
+              </Box>
+            </Box>
+            <Box sx={{ flexGrow: 1 }} />
+            <Tooltip title="Cotizaciones pendientes">
+              <span>
+                <IconButton
+                  color="inherit"
+                  onClick={() => showQuotes && navigate('/admin/cotizaciones')}
+                  disabled={!showQuotes}
+                  sx={{ color: 'text.primary' }}
+                >
+                  <Badge
+                    badgeContent={pendingQuotes ?? 0}
+                    color="warning"
+                    invisible={pendingQuotes == null || pendingQuotes === 0}
+                  >
+                    <NotificationsNoneOutlinedIcon />
+                  </Badge>
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 1 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', lg: 'block' }, maxWidth: 160 }} noWrap>
+                {user?.nombre?.trim() || user?.email}
+              </Typography>
+              <AccountMenu />
+            </Box>
+          </Toolbar>
+        </AppBar>
+
+        {/* Mobile top offset for mobile AppBar */}
+        <Toolbar sx={{ display: { md: 'none' } }} />
+
+        <Box
+          sx={{
+            flex: 1,
+            p: { xs: 2, sm: 3 },
+            pt: { xs: 2, md: 3 },
+            maxWidth: 1400,
+            width: '100%',
+            mx: 'auto',
+          }}
+        >
+          <Outlet />
         </Box>
-        <Outlet />
       </Box>
     </Box>
   );

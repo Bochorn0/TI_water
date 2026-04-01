@@ -49,7 +49,7 @@ export function AccountMenu() {
           aria-controls={open ? 'account-menu' : undefined}
           aria-haspopup="true"
           aria-expanded={open}
-          sx={{ color: 'white' }}
+          sx={{ color: 'inherit' }}
         >
           <Avatar
             src={user.avatar?.startsWith('data:') || user.avatar?.startsWith('http') ? user.avatar : undefined}

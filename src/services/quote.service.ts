@@ -4,6 +4,14 @@
 import { get, patch, post } from 'src/api/axiosHelper';
 import type { Quote, QuoteResponse } from 'src/types/quote.types';
 
+export type QuoteStatsPayload = {
+  total: number;
+  byStatus: {
+    pendiente: number;
+    enviada: number;
+  };
+};
+
 export const quoteService = {
   create: async (quote: Quote): Promise<Quote> => {
     const response = await post<Quote>('/quotes', quote);
@@ -27,6 +35,11 @@ export const quoteService = {
 
   update: async (id: number, quote: Partial<Quote>): Promise<Quote> => {
     const response = await patch<Quote>(`/quotes/${id}`, quote);
+    return response;
+  },
+
+  getStats: async (): Promise<QuoteStatsPayload> => {
+    const response = await get<QuoteStatsPayload>('/quotes/stats');
     return response;
   },
 };
