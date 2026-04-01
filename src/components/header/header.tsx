@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
@@ -17,8 +17,10 @@ import {
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
+import ViewSidebarIcon from '@mui/icons-material/ViewSidebar';
 import logoImage from '/assets/ti-water-logo.png';
 import { useAuth } from 'src/auth/auth-context';
+import { useAdminSidebarOpen } from 'src/components/admin/admin-sidebar-context';
 import { AccountMenu } from './account-menu';
 
 interface Props {
@@ -43,6 +45,9 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const openAdminSidebar = useAdminSidebarOpen();
+  const isAdminPath = location.pathname.startsWith('/admin');
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -171,15 +176,27 @@ export function Header() {
               )}
             </Box>
 
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              onClick={handleDrawerToggle}
-              sx={{ ml: 'auto', display: { md: 'none' }, color: 'white' }}
-            >
-              <MenuIcon />
-            </IconButton>
+            <Box sx={{ ml: 'auto', display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 0.5 }}>
+              {isAdminPath && openAdminSidebar && (
+                <IconButton
+                  color="inherit"
+                  aria-label="abrir menú del panel administración"
+                  onClick={() => openAdminSidebar()}
+                  sx={{ color: 'white' }}
+                >
+                  <ViewSidebarIcon />
+                </IconButton>
+              )}
+              <IconButton
+                color="inherit"
+                aria-label="open drawer"
+                edge="end"
+                onClick={handleDrawerToggle}
+                sx={{ color: 'white' }}
+              >
+                <MenuIcon />
+              </IconButton>
+            </Box>
           </Toolbar>
         </Container>
 

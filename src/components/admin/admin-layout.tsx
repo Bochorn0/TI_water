@@ -18,7 +18,6 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
@@ -34,9 +33,11 @@ import {
   canManageUsersAndRoles,
 } from 'src/auth/permissions';
 import { quoteService } from 'src/services/quote.service';
-import { AccountMenu } from 'src/components/header/account-menu';
+import { Header } from 'src/components/header/header';
+import { AdminSidebarOpenContext } from 'src/components/admin/admin-sidebar-context';
 
 const DRAWER_WIDTH = 260;
+const SITE_HEADER_OFFSET_PX = 100;
 
 type NavItem = {
   label: string;
@@ -197,134 +198,132 @@ export function AdminLayout() {
     </Box>
   );
 
+  const drawerPaperSx = useMemo(
+    () => ({
+      width: DRAWER_WIDTH,
+      boxSizing: 'border-box' as const,
+      bgcolor: '#0f172a',
+      borderRight: 'none',
+      backgroundImage: 'linear-gradient(180deg, rgba(10, 124, 255, 0.06) 0%, transparent 35%)',
+      ...(isMdUp
+        ? { height: '100%', position: 'relative' as const }
+        : {
+            top: SITE_HEADER_OFFSET_PX,
+            height: `calc(100vh - ${SITE_HEADER_OFFSET_PX}px)`,
+          }),
+    }),
+    [isMdUp],
+  );
+
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f1f5f9' }}>
-      <AppBar
-        position="fixed"
-        elevation={0}
-        sx={{
-          display: { md: 'none' },
-          bgcolor: '#0f172a',
-          color: '#f8fafc',
-          borderBottom: '1px solid rgba(148, 163, 184, 0.12)',
-        }}
-      >
-        <Toolbar sx={{ gap: 1 }}>
-          <IconButton color="inherit" edge="start" onClick={() => setMobileOpen(true)} aria-label="abrir menú">
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="subtitle1" fontWeight={700} sx={{ flex: 1 }}>
-            Admin
-          </Typography>
-          <AccountMenu />
-        </Toolbar>
-      </AppBar>
-
-      <Drawer
-        variant={isMdUp ? 'permanent' : 'temporary'}
-        open={isMdUp ? true : mobileOpen}
-        onClose={() => setMobileOpen(false)}
-        ModalProps={{ keepMounted: true }}
-        sx={{
-          width: DRAWER_WIDTH,
-          flexShrink: 0,
-          '& .MuiDrawer-paper': {
-            width: DRAWER_WIDTH,
-            boxSizing: 'border-box',
-            bgcolor: '#0f172a',
-            borderRight: 'none',
-            backgroundImage: 'linear-gradient(180deg, rgba(10, 124, 255, 0.06) 0%, transparent 35%)',
-          },
-        }}
-      >
-        {drawer}
-      </Drawer>
-
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <AppBar
-          position="sticky"
-          elevation={0}
-          sx={{
-            display: { xs: 'none', md: 'block' },
-            bgcolor: 'rgba(255, 255, 255, 0.92)',
-            backdropFilter: 'blur(8px)',
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Toolbar sx={{ minHeight: 72, gap: 2, py: 1 }}>
-            <Box sx={{ flex: 1, maxWidth: 420 }}>
-              <Box
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                  px: 1.5,
-                  py: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  bgcolor: 'grey.50',
-                }}
-              >
-                <SearchIcon sx={{ color: 'text.secondary', mr: 1, fontSize: 22 }} />
-                <Typography variant="body2" color="text.secondary">
-                  Buscar en el panel…
-                </Typography>
-              </Box>
-            </Box>
-            <Box sx={{ flexGrow: 1 }} />
-            <Tooltip title="Cotizaciones pendientes">
-              <span>
-                <IconButton
-                  color="inherit"
-                  onClick={() => showQuotes && navigate('/admin/cotizaciones')}
-                  disabled={!showQuotes}
-                  sx={{ color: 'text.primary' }}
-                >
-                  <Badge
-                    badgeContent={pendingQuotes ?? 0}
-                    color="warning"
-                    invisible={pendingQuotes == null || pendingQuotes === 0}
-                  >
-                    <NotificationsNoneOutlinedIcon />
-                  </Badge>
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 1 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', lg: 'block' }, maxWidth: 160 }} noWrap>
-                {user?.nombre?.trim() || user?.email}
-              </Typography>
-              <AccountMenu />
-            </Box>
-          </Toolbar>
-        </AppBar>
-
-        {/* Mobile top offset for mobile AppBar */}
-        <Toolbar sx={{ display: { md: 'none' } }} />
-
+    <AdminSidebarOpenContext.Provider value={() => setMobileOpen(true)}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f1f5f9' }}>
+        <Header />
         <Box
           sx={{
+            display: 'flex',
             flex: 1,
-            p: { xs: 2, sm: 3 },
-            pt: { xs: 2, md: 3 },
-            maxWidth: 1400,
             width: '100%',
-            mx: 'auto',
+            mt: `${SITE_HEADER_OFFSET_PX}px`,
+            minHeight: `calc(100vh - ${SITE_HEADER_OFFSET_PX}px)`,
+            alignSelf: 'stretch',
           }}
         >
-          <Outlet />
+          <Drawer
+            variant={isMdUp ? 'permanent' : 'temporary'}
+            open={isMdUp ? true : mobileOpen}
+            onClose={() => setMobileOpen(false)}
+            ModalProps={{ keepMounted: true }}
+            sx={{
+              width: DRAWER_WIDTH,
+              flexShrink: 0,
+              alignSelf: 'stretch',
+              ...(isMdUp ? { display: 'flex' } : {}),
+              '& .MuiDrawer-paper': drawerPaperSx,
+            }}
+          >
+            {drawer}
+          </Drawer>
+
+          <Box
+            component="main"
+            sx={{
+              flexGrow: 1,
+              width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
+              minWidth: 0,
+              minHeight: `calc(100vh - ${SITE_HEADER_OFFSET_PX}px)`,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <AppBar
+              position="sticky"
+              elevation={0}
+              sx={{
+                display: { xs: 'none', md: 'block' },
+                bgcolor: 'rgba(255, 255, 255, 0.92)',
+                backdropFilter: 'blur(8px)',
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <Toolbar sx={{ minHeight: 72, gap: 2, py: 1 }}>
+                <Box sx={{ flex: 1, maxWidth: 420 }}>
+                  <Box
+                    sx={{
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 2,
+                      px: 1.5,
+                      py: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      bgcolor: 'grey.50',
+                    }}
+                  >
+                    <SearchIcon sx={{ color: 'text.secondary', mr: 1, fontSize: 22 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      Buscar en el panel…
+                    </Typography>
+                  </Box>
+                </Box>
+                <Box sx={{ flexGrow: 1 }} />
+                <Tooltip title="Cotizaciones pendientes">
+                  <span>
+                    <IconButton
+                      color="inherit"
+                      onClick={() => showQuotes && navigate('/admin/cotizaciones')}
+                      disabled={!showQuotes}
+                      sx={{ color: 'text.primary' }}
+                    >
+                      <Badge
+                        badgeContent={pendingQuotes ?? 0}
+                        color="warning"
+                        invisible={pendingQuotes == null || pendingQuotes === 0}
+                      >
+                        <NotificationsNoneOutlinedIcon />
+                      </Badge>
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Toolbar>
+            </AppBar>
+
+            <Box
+              sx={{
+                flex: 1,
+                p: { xs: 2, sm: 3 },
+                pt: { xs: 2, md: 3 },
+                maxWidth: 1400,
+                width: '100%',
+                mx: 'auto',
+              }}
+            >
+              <Outlet />
+            </Box>
+          </Box>
         </Box>
       </Box>
-    </Box>
+    </AdminSidebarOpenContext.Provider>
   );
 }
