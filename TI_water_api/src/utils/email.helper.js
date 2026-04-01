@@ -31,18 +31,27 @@ class EmailHelper {
 
     // SendGrid configuration
     this.sendGridApiKey = process.env.SENDGRID_API_KEY || '';
-    this.sendGridFromEmail = process.env.SENDGRID_FROM_EMAIL || process.env.SMTP_USER || 'support@tiwater.com.mx';
+    this.sendGridFromEmail = process.env.SENDGRID_FROM_EMAIL || process.env.SMTP_USER || 'soporte@tiwater.com.mx';
     this.sendGridFromName = process.env.SENDGRID_FROM_NAME || 'TI Water';
     
-    // Mailgun configuration
-    this.mailgunApiKey = process.env.MAILGUN_API_KEY || '';
-    this.mailgunDomain = process.env.MAILGUN_DOMAIN || '';
-    this.mailgunFromEmail = process.env.MAILGUN_FROM_EMAIL || process.env.SMTP_USER || 'support@tiwater.com.mx';
+    // Mailgun configuration (trim keys — trailing newlines in App Settings cause 401 Forbidden)
+    this.mailgunApiKey = String(process.env.MAILGUN_API_KEY || '').trim();
+    this.mailgunDomain = String(process.env.MAILGUN_DOMAIN || '').trim();
+    this.mailgunFromEmail = process.env.MAILGUN_FROM_EMAIL || process.env.SMTP_USER || 'soporte@tiwater.com.mx';
     this.mailgunFromName = process.env.MAILGUN_FROM_NAME || 'TI Water';
+    const mailgunRegion = String(process.env.MAILGUN_REGION || '').toLowerCase();
+    const mailgunEu =
+      process.env.MAILGUN_EU === 'true' ||
+      process.env.MAILGUN_EU === '1' ||
+      mailgunRegion === 'eu';
+    const customMailgunUrl = String(process.env.MAILGUN_API_URL || '').trim().replace(/\/$/, '');
+    this.mailgunApiBase =
+      customMailgunUrl ||
+      (mailgunEu ? 'https://api.eu.mailgun.net/v3' : 'https://api.mailgun.net/v3');
     
     // Resend configuration
     this.resendApiKey = process.env.RESEND_API_KEY || '';
-    this.resendFromEmail = process.env.RESEND_FROM_EMAIL || process.env.SMTP_USER || 'support@tiwater.com.mx';
+    this.resendFromEmail = process.env.RESEND_FROM_EMAIL || process.env.SMTP_USER || 'soporte@tiwater.com.mx';
     this.resendFromName = process.env.RESEND_FROM_NAME || 'TI Water';
     
     // SMTP configuration (fallback if SendGrid not configured)
@@ -124,7 +133,10 @@ class EmailHelper {
         this.emailProvider = 'none';
         console.log('[EmailHelper] Email disabled (MAILGUN_API_KEY or MAILGUN_DOMAIN not set). See docs/EMAIL_CONFIG.md.');
       } else {
-        console.log('[EmailHelper] Using Mailgun API');
+        const hostHint = this.mailgunApiBase.includes('eu.mailgun')
+          ? 'api.eu.mailgun.net (EU)'
+          : 'api.mailgun.net (US)';
+        console.log('[EmailHelper] Using Mailgun API —', hostHint, '| domain:', this.mailgunDomain);
       }
     } else if (this.emailProvider === 'resend') {
       if (!this.resendApiKey) {
@@ -285,6 +297,7 @@ class EmailHelper {
       text,
       from = this.sendGridFromEmail,
       fromName = this.sendGridFromName,
+      replyTo,
     } = options;
 
     if (!this.sendGridApiKey) {
@@ -304,6 +317,9 @@ class EmailHelper {
           email: from,
           name: fromName,
         },
+        ...(replyTo
+          ? { reply_to: { email: typeof replyTo === 'string' ? replyTo.trim() : String(replyTo) } }
+          : {}),
         content: [
           {
             type: 'text/html',
@@ -366,6 +382,7 @@ class EmailHelper {
       text,
       from = this.mailgunFromEmail,
       fromName = this.mailgunFromName,
+      replyTo,
     } = options;
 
     if (!this.mailgunApiKey || !this.mailgunDomain) {
@@ -376,9 +393,9 @@ class EmailHelper {
     }
 
     try {
-      // Mailgun API endpoint
-      const url = `https://api.mailgun.net/v3/${this.mailgunDomain}/messages`;
-      
+      const domainPath = encodeURIComponent(this.mailgunDomain);
+      const url = `${this.mailgunApiBase}/${domainPath}/messages`;
+
       const formData = new URLSearchParams();
       formData.append('from', `${fromName} <${from}>`);
       if (Array.isArray(to)) {
@@ -389,6 +406,9 @@ class EmailHelper {
       formData.append('subject', subject);
       if (html) formData.append('html', html);
       if (text) formData.append('text', text);
+      if (replyTo) {
+        formData.append('h:Reply-To', typeof replyTo === 'string' ? replyTo.trim() : String(replyTo));
+      }
 
       const response = await axios.post(url, formData.toString(), {
         headers: {
@@ -410,11 +430,26 @@ class EmailHelper {
         provider: 'mailgun',
       };
     } catch (error) {
-      console.error('[EmailHelper] Error sending email via Mailgun:', error.response?.data || error.message);
+      const status = error.response?.status;
+      const data = error.response?.data;
+      console.error('[EmailHelper] Mailgun request failed:', {
+        status,
+        urlHost: this.mailgunApiBase,
+        domain: this.mailgunDomain,
+        body: typeof data === 'string' ? data : data?.message || data,
+        hint:
+          status === 401 || status === 403
+            ? 'Use Private API key (starts with key-...), exact Sending domain from Mailgun, and MAILGUN_EU=true if the account is in EU.'
+            : undefined,
+      });
       return {
         success: false,
-        error: error.response?.data?.message || error.message || 'Unknown error sending email via Mailgun',
-        details: error.response?.data || error,
+        error:
+          (typeof data === 'object' && data?.message) ||
+          (typeof data === 'string' ? data : null) ||
+          error.message ||
+          'Unknown error sending email via Mailgun',
+        details: data || error,
       };
     }
   }
@@ -432,6 +467,7 @@ class EmailHelper {
       text,
       from = this.resendFromEmail,
       fromName = this.resendFromName,
+      replyTo,
     } = options;
 
     if (!this.resendApiKey) {
@@ -449,6 +485,9 @@ class EmailHelper {
         html: html || text,
         text: text || html?.replace(/<[^>]*>/g, ''),
       };
+      if (replyTo) {
+        emailData.reply_to = typeof replyTo === 'string' ? replyTo.trim() : String(replyTo);
+      }
 
       const response = await axios.post(
         'https://api.resend.com/emails',
@@ -491,6 +530,7 @@ class EmailHelper {
    * @param {string} options.html - HTML content
    * @param {string} options.text - Plain text content (optional)
    * @param {string} options.from - Sender email (optional, uses default if not provided)
+   * @param {string} options.replyTo - Reply-To address (optional)
    * @param {Array} options.attachments - Email attachments (optional)
    * @returns {Promise<Object>} Result object with success status and message/info
    */
@@ -506,6 +546,7 @@ class EmailHelper {
       text,
       from = this.defaultFrom,
       attachments = [],
+      replyTo,
     } = options;
 
     // Validate required fields
@@ -518,11 +559,11 @@ class EmailHelper {
 
     // Route to appropriate provider
     if (this.emailProvider === 'sendgrid') {
-      return this.sendEmailViaSendGrid({ to, subject, html, text, from });
+      return this.sendEmailViaSendGrid({ to, subject, html, text, from, replyTo });
     } else if (this.emailProvider === 'mailgun') {
-      return this.sendEmailViaMailgun({ to, subject, html, text, from });
+      return this.sendEmailViaMailgun({ to, subject, html, text, from, replyTo });
     } else if (this.emailProvider === 'resend') {
-      return this.sendEmailViaResend({ to, subject, html, text, from });
+      return this.sendEmailViaResend({ to, subject, html, text, from, replyTo });
     }
 
     // Fallback to SMTP
@@ -544,6 +585,9 @@ class EmailHelper {
         text: text || html?.replace(/<[^>]*>/g, ''), // Strip HTML if only html provided
         attachments,
       };
+      if (replyTo) {
+        mailOptions.replyTo = typeof replyTo === 'string' ? replyTo.trim() : String(replyTo);
+      }
 
       const info = await this.transporter.sendMail(mailOptions);
       
@@ -586,7 +630,7 @@ class EmailHelper {
     } = options;
 
     // Generate reset URL if not provided
-    const frontendUrl = process.env.FRONTEND_URL || 'https://www.tiwater.com.mx';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://tiwater.mx';
     const finalResetUrl = resetUrl || `${frontendUrl}/reset-password?token=${resetToken}`;
 
     const subject = 'Recuperación de Contraseña - TI Water';

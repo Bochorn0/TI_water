@@ -5,6 +5,9 @@ import emailHelper from '../utils/email.helper.js';
 
 const BRAND = 'TI Water';
 
+/** Optional Reply-To (From / domain vienen de MAILGUN_* en email.helper). */
+const QUOTE_REPLY_TO = String(process.env.TIWATER_EMAIL_REPLY_TO || '').trim();
+
 function escapeHtml(str) {
   if (str == null || str === '') return '';
   return String(str)
@@ -132,6 +135,7 @@ export async function sendQuoteReceivedCustomerEmail(quote) {
     to,
     subject,
     html: wrapEmail(inner),
+    ...(isValidEmail(QUOTE_REPLY_TO) ? { replyTo: QUOTE_REPLY_TO } : {}),
     text: [
       `Hola ${quote.clientName || 'cliente'},`,
       '',
@@ -171,6 +175,7 @@ export async function sendQuoteResponseCustomerEmail(quote) {
     to,
     subject,
     html: wrapEmail(inner),
+    ...(isValidEmail(QUOTE_REPLY_TO) ? { replyTo: QUOTE_REPLY_TO } : {}),
     text: [
       `Hola ${quote.clientName || 'cliente'},`,
       '',
