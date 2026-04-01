@@ -205,7 +205,7 @@ class TIWaterQuoteModel {
    */
   static async getQuoteItems(quoteId) {
     const itemsQuery = `
-      SELECT qi.*, p.code, p.name, p.description, p.category
+      SELECT qi.*, p.code, p.name, p.description, p.category, p.images AS product_images
       FROM tiwater_quote_items qi
       JOIN tiwater_products p ON qi.product_id = p.id
       WHERE qi.quote_id = $1
@@ -220,7 +220,8 @@ class TIWaterQuoteModel {
           code: row.code,
           name: row.name,
           description: row.description,
-          category: row.category
+          category: row.category,
+          images: Array.isArray(row.product_images) ? row.product_images : (row.product_images ? [row.product_images] : [])
         }
       }));
     } catch (error) {

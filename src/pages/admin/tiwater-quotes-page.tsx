@@ -23,7 +23,7 @@ import {
 import { productService } from 'src/services/product.service';
 import { quoteService } from 'src/services/quote.service';
 import type { Product } from 'src/types/product.types';
-import type { Quote, QuoteStatus } from 'src/types/quote.types';
+import type { Quote, QuoteItem, QuoteStatus } from 'src/types/quote.types';
 
 export function TiwaterQuotesAdminPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -42,6 +42,18 @@ export function TiwaterQuotesAdminPage() {
     products.forEach((product) => map.set(product.id, Number(product.price || 0)));
     return map;
   }, [products]);
+
+  const catalogFirstImageByProductId = useMemo(() => {
+    const map = new Map<number, string>();
+    products.forEach((p) => {
+      const first = p.images?.[0];
+      if (first) map.set(p.id, first);
+    });
+    return map;
+  }, [products]);
+
+  const productImageForItem = (item: QuoteItem) =>
+    item.product?.images?.[0] || catalogFirstImageByProductId.get(item.productId);
 
   const fetchQuotes = async () => {
     setLoading(true);
@@ -170,7 +182,35 @@ export function TiwaterQuotesAdminPage() {
           {editingQuote?.items?.map((item, index) => (
             <Paper key={item.id || index} sx={{ p: 2, mb: 2 }}>
               <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} sm="auto">
+                  <Box
+                    sx={{
+                      width: 100,
+                      height: 100,
+                      flexShrink: 0,
+                      borderRadius: 1,
+                      bgcolor: 'grey.100',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {productImageForItem(item) ? (
+                      <Box
+                        component="img"
+                        src={productImageForItem(item)}
+                        alt=""
+                        sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <Typography variant="caption" color="text.secondary" sx={{ px: 1, textAlign: 'center' }}>
+                        {item.product?.code || '—'}
+                      </Typography>
+                    )}
+                  </Box>
+                </Grid>
+                <Grid item xs={12} md={3}>
                   <Typography variant="subtitle2">{item.product?.name}</Typography>
                   <Typography variant="caption" color="text.secondary">
                     {item.product?.code}

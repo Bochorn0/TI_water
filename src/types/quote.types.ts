@@ -14,6 +14,8 @@ export interface QuoteItem {
     name: string;
     description?: string;
     category?: string;
+    /** First entry is used as thumbnail in admin quote modal */
+    images?: string[];
   };
   quantity: number;
   unitPrice: number;
