@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
+  Alert,
   Box,
   Button,
   Checkbox,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -15,9 +17,10 @@ import {
   Paper,
   Typography,
 } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { CONFIG } from 'src/config-global';
-import { v1Get } from 'src/api/v1-helpers';
+import { v1Get, v1Patch } from 'src/api/v1-helpers';
 import { getApiErrorMessage } from 'src/utils/api-error';
 import { toast } from 'react-toastify';
 import { AdminDataTable, type AdminColumnDef } from 'src/components/admin/AdminDataTable';
@@ -30,24 +33,40 @@ type RoleRow = {
   dashboardVersion?: string;
 };
 
-/** Friendly labels for TI Water + shared paths (Aquatech-style clarity in detail view) */
-const PERMISSION_LABELS: Record<string, string> = {
-  '/': 'Acceso general (API base)',
-  '/dashboard': 'Dashboard (menú padre)',
-  '/dashboard/v1': 'Dashboard v1',
-  '/dashboard/v2': 'Dashboard v2',
-  '/usuarios': 'Usuarios y roles',
-  '/tiwater-catalog': 'Catálogo TI Water',
-  '/tiwater-quotes': 'Cotizaciones TI Water',
-  '/equipos': 'Equipos',
-  '/controladores': 'Controladores',
-  '/puntoVenta': 'Puntos de venta (padre)',
-  '/puntoVenta/v1': 'Puntos de venta v1',
-  '/puntoVenta/v2': 'Puntos de venta v2',
-  '/personalizacion': 'Personalización (padre)',
-  '/personalizacion/v1': 'Personalización v1',
-  '/personalizacion/v2': 'Personalización v2',
-};
+/**
+ * Panel rows aligned with the admin sidebar. API paths:
+ * - /tiwater-catalog → Catálogo
+ * - /tiwater-quotes → Cotizaciones
+ * - /usuarios → Usuarios y Roles (misma ruta en API para /users y /roles)
+ */
+const TIWATER_PANEL_ROWS: { id: string; path: string; title: string; description: string }[] = [
+  {
+    id: 'catalog',
+    path: '/tiwater-catalog',
+    title: 'Catálogo',
+    description: 'Productos en el panel: listado, alta, edición y baja.',
+  },
+  {
+    id: 'quotes',
+    path: '/tiwater-quotes',
+    title: 'Cotizaciones',
+    description: 'Cotizaciones en el panel: ver, actualizar estado y detalle.',
+  },
+  {
+    id: 'users',
+    path: '/usuarios',
+    title: 'Usuarios',
+    description: 'Cuentas de usuario en el panel (API /users).',
+  },
+  {
+    id: 'roles',
+    path: '/usuarios',
+    title: 'Roles',
+    description: 'Permisos de roles en el panel (API /roles).',
+  },
+];
+
+const TIWATER_PATH_SET = new Set(TIWATER_PANEL_ROWS.map((p) => p.path));
 
 const DASHBOARD_VERSION_LABELS: Record<string, string> = {
   v1: 'Dashboard v1',
@@ -55,32 +74,77 @@ const DASHBOARD_VERSION_LABELS: Record<string, string> = {
   both: 'Ambos',
 };
 
-function labelForPermission(path: string): string {
-  return PERMISSION_LABELS[path] || path;
-}
-
 export function AdminRolesPage() {
   const [rows, setRows] = useState<RoleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<RoleRow | null>(null);
+  /** Full permissions array while dialog is open (TI Water toggles + legacy paths preserved on save) */
+  const [draftPermissions, setDraftPermissions] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const loadRoles = async () => {
+    setLoading(true);
+    try {
+      const data = await v1Get<RoleRow[]>('/roles');
+      setRows(Array.isArray(data) ? data : []);
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, 'No se pudieron cargar roles'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    void (async () => {
-      try {
-        const data = await v1Get<RoleRow[]>('/roles');
-        setRows(Array.isArray(data) ? data : []);
-      } catch (e) {
-        toast.error(getApiErrorMessage(e, 'No se pudieron cargar roles'));
-      } finally {
-        setLoading(false);
-      }
-    })();
+    void loadRoles();
   }, []);
 
-  const allKnownPaths = Object.keys(PERMISSION_LABELS);
-  const detailPaths = detail
-    ? [...new Set([...allKnownPaths, ...(detail.permissions || [])])].sort((a, b) => a.localeCompare(b))
-    : [];
+  useEffect(() => {
+    if (detail) {
+      setDraftPermissions([...(detail.permissions || [])]);
+    } else {
+      setDraftPermissions([]);
+    }
+  }, [detail]);
+
+  const openDialog = (r: RoleRow) => {
+    setDetail(r);
+  };
+
+  const closeDialog = () => {
+    setDetail(null);
+  };
+
+  const isProtected = Boolean(detail?.protected);
+
+  const togglePath = (path: string) => {
+    if (isProtected) return;
+    setDraftPermissions((prev) => {
+      const has = prev.includes(path);
+      if (has) return prev.filter((p) => p !== path);
+      return [...prev, path];
+    });
+  };
+
+  const handleSave = async () => {
+    if (!detail || isProtected) return;
+    setSaving(true);
+    try {
+      const legacy = (detail.permissions || []).filter((p) => !TIWATER_PATH_SET.has(p));
+      const tiSelected = TIWATER_PANEL_ROWS.filter((p) => draftPermissions.includes(p.path)).map(
+        (p) => p.path,
+      );
+      const merged = [...new Set([...legacy, ...tiSelected])];
+      const updated = await v1Patch<RoleRow>(`/roles/${detail.id}`, { permissions: merged });
+      toast.success('Permisos actualizados');
+      setRows((prev) => prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)));
+      setDetail({ ...detail, ...updated, permissions: updated.permissions ?? merged });
+      setDraftPermissions([...(updated.permissions ?? merged)]);
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, 'No se pudo guardar el rol'));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const columns: AdminColumnDef<RoleRow>[] = [
     { id: 'name', header: 'Nombre', cell: (r) => r.name },
@@ -93,17 +157,20 @@ export function AdminRolesPage() {
     },
     {
       id: 'perms',
-      header: 'Permisos',
-      cell: (r) => (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-          {(r.permissions || []).slice(0, 8).map((p) => (
-            <Chip key={p} size="small" label={p} variant="outlined" />
-          ))}
-          {(r.permissions || []).length > 8 && (
-            <Chip size="small" label={`+${(r.permissions || []).length - 8}`} />
-          )}
-        </Box>
-      ),
+      header: 'Permisos TI Water',
+      cell: (r) => {
+        const perms = r.permissions || [];
+        return (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {TIWATER_PANEL_ROWS.filter((row) => perms.includes(row.path)).map((row) => (
+              <Chip key={row.id} size="small" label={row.title} color="primary" variant="outlined" />
+            ))}
+            {perms.some((perm) => !TIWATER_PATH_SET.has(perm)) && (
+              <Chip size="small" label="+ otros" variant="outlined" />
+            )}
+          </Box>
+        );
+      },
     },
   ];
 
@@ -129,18 +196,20 @@ export function AdminRolesPage() {
           <IconButton
             size="small"
             color="primary"
-            aria-label="ver detalle de permisos"
-            onClick={() => setDetail(r)}
+            aria-label={r.protected ? 'ver permisos' : 'editar permisos'}
+            onClick={() => openDialog(r)}
           >
-            <VisibilityIcon fontSize="small" />
+            {r.protected ? <VisibilityIcon fontSize="small" /> : <EditIcon fontSize="small" />}
           </IconButton>
         )}
         emptyMessage="No hay roles"
         defaultRowsPerPage={10}
       />
 
-      <Dialog open={Boolean(detail)} onClose={() => setDetail(null)} fullWidth maxWidth="sm">
-        <DialogTitle>Rol: {detail?.name}</DialogTitle>
+      <Dialog open={Boolean(detail)} onClose={closeDialog} fullWidth maxWidth="sm">
+        <DialogTitle>
+          {isProtected ? 'Ver permisos' : 'Editar permisos'}: {detail?.name}
+        </DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Versión dashboard:{' '}
@@ -152,37 +221,55 @@ export function AdminRolesPage() {
                 : ''}
             </strong>
           </Typography>
+
+          {isProtected && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Rol protegido (p. ej. admin / cliente): los permisos de este sitio no se editan aquí para
+              evitar bloqueos. Otros roles sí pueden cambiarse.
+            </Alert>
+          )}
+
           <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Permisos (menú y API)
+            Acceso al panel TI Water
           </Typography>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
-            Misma idea que en Aquatech: cada permiso controla visibilidad y acceso a rutas. Solo lectura
-            aquí; la edición de roles se gestiona desde el API o futuras pantallas de edición.
+            Cuatro módulos del panel; Usuarios y Roles comparten el permiso{' '}
+            <strong>/usuarios</strong> en la API. Las rutas heredadas de otros sistemas se conservan al
+            guardar aunque no aparezcan aquí.
           </Typography>
+
           <Paper variant="outlined" sx={{ p: 2, maxHeight: 360, overflow: 'auto' }}>
             <FormGroup>
-              {detailPaths.map((path) => {
-                const checked = (detail?.permissions || []).includes(path);
-                const isSub = path.includes('/v1') || path.includes('/v2');
+              {TIWATER_PANEL_ROWS.map((item) => {
+                const checked = draftPermissions.includes(item.path);
                 return (
                   <FormControlLabel
-                    key={path}
-                    control={<Checkbox checked={checked} disabled size="small" />}
+                    key={item.id}
+                    control={
+                      <Checkbox
+                        checked={checked}
+                        disabled={isProtected}
+                        size="small"
+                        onChange={() => togglePath(item.path)}
+                      />
+                    }
                     label={
                       <Box>
-                        <Typography variant="body2">{labelForPermission(path)}</Typography>
+                        <Typography variant="body2" fontWeight={600}>
+                          {item.title}
+                        </Typography>
                         <Typography variant="caption" color="text.secondary" display="block">
-                          {path}
+                          {item.description}
+                        </Typography>
+                        <Typography variant="caption" color="primary.main" display="block" sx={{ mt: 0.25 }}>
+                          {item.path}
                         </Typography>
                       </Box>
                     }
                     sx={{
-                      mb: 0.5,
+                      mb: 1.5,
                       alignItems: 'flex-start',
                       ml: 0,
-                      pl: isSub ? 2 : 0,
-                      borderLeft: isSub ? '2px solid' : 'none',
-                      borderColor: 'divider',
                     }}
                   />
                 );
@@ -191,7 +278,12 @@ export function AdminRolesPage() {
           </Paper>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDetail(null)}>Cerrar</Button>
+          <Button onClick={closeDialog}>Cerrar</Button>
+          {!isProtected && (
+            <Button variant="contained" onClick={() => void handleSave()} disabled={saving}>
+              {saving ? <CircularProgress size={22} /> : 'Guardar permisos'}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </>
