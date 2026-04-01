@@ -3,6 +3,10 @@
 
 import TIWaterQuoteModel from '../models/postgres/tiwater-quote.model.js';
 import RoleModel from '../models/postgres/role.model.js';
+import {
+  sendQuoteReceivedCustomerEmail,
+  sendQuoteResponseCustomerEmail,
+} from '../services/tiwater-quote-notification.service.js';
 
 async function getRoleContext(user) {
   const role = user?.role ? await RoleModel.findById(user.role) : null;
@@ -125,6 +129,9 @@ export const createQuote = async (req, res) => {
     quoteData.status = 'pendiente';
 
     const quote = await TIWaterQuoteModel.create(quoteData);
+    void sendQuoteReceivedCustomerEmail(quote).catch((err) =>
+      console.error('[TIWaterQuoteEmail] Unhandled received-email error:', err),
+    );
     res.status(201).json(quote);
   } catch (error) {
     console.error('Error creating quote:', error);
@@ -169,12 +176,24 @@ export const updateQuote = async (req, res) => {
       quoteData.total = subtotal + (quoteData.tax || 0);
     }
     
+    const prevStatus = String(existingQuote.status || '').toLowerCase();
     const updatedQuote = await TIWaterQuoteModel.updateById(parseInt(quoteId), quoteData);
-    
+
     if (!updatedQuote) {
       return res.status(404).json({ message: 'Cotización no encontrada' });
     }
-    
+
+    const newStatus = String(updatedQuote.status || '').toLowerCase();
+    if (
+      isManager &&
+      prevStatus !== 'enviada' &&
+      newStatus === 'enviada'
+    ) {
+      void sendQuoteResponseCustomerEmail(updatedQuote).catch((err) =>
+        console.error('[TIWaterQuoteEmail] Unhandled response-email error:', err),
+      );
+    }
+
     res.status(200).json(updatedQuote);
   } catch (error) {
     console.error('Error updating quote:', error);
