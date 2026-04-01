@@ -214,10 +214,14 @@ export function TiwaterCatalogProductAdminPage() {
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
-                <InputLabel>Categoría</InputLabel>
+                <InputLabel id="tiwater-product-category-label" shrink>
+                  Categoría
+                </InputLabel>
                 <Select
+                  labelId="tiwater-product-category-label"
                   value={formData.category || ''}
                   label="Categoría"
+                  displayEmpty
                   onChange={handleCategory}
                 >
                   <MenuItem value="">—</MenuItem>

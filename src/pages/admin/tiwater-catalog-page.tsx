@@ -8,6 +8,7 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  MenuItem,
   Paper,
   Table,
   TableBody,
@@ -103,14 +104,15 @@ export function TiwaterCatalogAdminPage() {
             label="Categoría"
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            SelectProps={{ native: true }}
-            sx={{ minWidth: 180 }}
+            InputLabelProps={{ shrink: true }}
+            SelectProps={{ displayEmpty: true }}
+            sx={{ minWidth: 200 }}
           >
-            <option value="">Todas</option>
+            <MenuItem value="">Todas</MenuItem>
             {categories.map((c) => (
-              <option key={c} value={c}>
+              <MenuItem key={c} value={c}>
                 {categoryLabels[c]}
-              </option>
+              </MenuItem>
             ))}
           </TextField>
           <Button variant="contained" onClick={() => navigate('/admin/catalogo/nuevo')}>
