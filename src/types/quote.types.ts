@@ -2,11 +2,8 @@
 // TypeScript types for TI Water quotes
 
 export enum QuoteStatus {
-  DRAFT = 'draft',
-  SENT = 'sent',
-  ACCEPTED = 'accepted',
-  REJECTED = 'rejected',
-  EXPIRED = 'expired',
+  PENDIENTE = 'pendiente',
+  ENVIADA = 'enviada',
 }
 
 export interface QuoteItem {

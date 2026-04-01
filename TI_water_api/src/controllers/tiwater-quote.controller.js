@@ -2,6 +2,18 @@
 // Controller for TI Water quotes endpoints
 
 import TIWaterQuoteModel from '../models/postgres/tiwater-quote.model.js';
+import RoleModel from '../models/postgres/role.model.js';
+
+async function getRoleContext(user) {
+  const role = user?.role ? await RoleModel.findById(user.role) : null;
+  const permissions = Array.isArray(role?.permissions) ? role.permissions.map((p) => String(p).toLowerCase()) : [];
+  const isManager =
+    String(role?.name || '').toLowerCase() === 'admin' ||
+    permissions.includes('/tiwater-catalog') ||
+    permissions.includes('/tiwater-quotes');
+
+  return { role, isManager };
+}
 
 /**
  * Get all quotes
@@ -22,6 +34,10 @@ export const getQuotes = async (req, res) => {
     if (clientName) filters.clientName = clientName;
     if (quoteNumber) filters.quoteNumber = quoteNumber;
     if (createdBy) filters.createdBy = createdBy;
+    const { isManager } = await getRoleContext(req.user);
+    if (!isManager) {
+      filters.createdBy = req.user.id;
+    }
 
     const options = {
       limit: parseInt(limit),
@@ -57,6 +73,11 @@ export const getQuoteById = async (req, res) => {
     
     if (!quote) {
       return res.status(404).json({ message: 'Cotización no encontrada' });
+    }
+
+    const { isManager } = await getRoleContext(req.user);
+    if (!isManager && String(quote.createdBy || '') !== String(req.user.id)) {
+      return res.status(403).json({ message: 'No tienes permiso para ver esta cotización' });
     }
     
     res.status(200).json(quote);
@@ -97,10 +118,11 @@ export const createQuote = async (req, res) => {
       }
     }
 
-    // Set created_by from auth token if available
-    if (req.user && req.user.id) {
+    // Public quote creation allowed; attach creator only when authenticated
+    if (req.user?.id) {
       quoteData.createdBy = req.user.id;
     }
+    quoteData.status = 'pendiente';
 
     const quote = await TIWaterQuoteModel.create(quoteData);
     res.status(201).json(quote);
@@ -117,6 +139,20 @@ export const updateQuote = async (req, res) => {
   try {
     const { quoteId } = req.params;
     const quoteData = req.body;
+    const existingQuote = await TIWaterQuoteModel.findById(parseInt(quoteId));
+
+    if (!existingQuote) {
+      return res.status(404).json({ message: 'Cotización no encontrada' });
+    }
+
+    const { isManager } = await getRoleContext(req.user);
+    if (!isManager && String(existingQuote.createdBy || '') !== String(req.user.id)) {
+      return res.status(403).json({ message: 'No tienes permiso para editar esta cotización' });
+    }
+
+    if (!isManager && quoteData.status !== undefined) {
+      return res.status(403).json({ message: 'No tienes permiso para cambiar el estado de cotizaciones' });
+    }
 
     // Recalculate totals from items if items are provided
     if (quoteData.items && quoteData.items.length > 0) {
@@ -173,21 +209,17 @@ export const deleteQuote = async (req, res) => {
  */
 export const getQuoteStats = async (req, res) => {
   try {
+    const { isManager } = await getRoleContext(req.user);
+    const baseFilter = isManager ? {} : { createdBy: req.user.id };
     const totalQuotes = await TIWaterQuoteModel.count({});
-    const draftQuotes = await TIWaterQuoteModel.count({ status: 'draft' });
-    const sentQuotes = await TIWaterQuoteModel.count({ status: 'sent' });
-    const acceptedQuotes = await TIWaterQuoteModel.count({ status: 'accepted' });
-    const rejectedQuotes = await TIWaterQuoteModel.count({ status: 'rejected' });
-    const expiredQuotes = await TIWaterQuoteModel.count({ status: 'expired' });
+    const pendienteQuotes = await TIWaterQuoteModel.count({ ...baseFilter, status: 'pendiente' });
+    const enviadaQuotes = await TIWaterQuoteModel.count({ ...baseFilter, status: 'enviada' });
 
     res.status(200).json({
-      total: totalQuotes,
+      total: isManager ? totalQuotes : await TIWaterQuoteModel.count(baseFilter),
       byStatus: {
-        draft: draftQuotes,
-        sent: sentQuotes,
-        accepted: acceptedQuotes,
-        rejected: rejectedQuotes,
-        expired: expiredQuotes
+        pendiente: pendienteQuotes,
+        enviada: enviadaQuotes
       }
     });
   } catch (error) {

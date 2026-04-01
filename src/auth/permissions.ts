@@ -23,3 +23,10 @@ export function canManageUsersAndRoles(user: AuthUser | null): boolean {
   return permSet(user).has('/usuarios');
 }
 
+export function canManageTiwaterQuotes(user: AuthUser | null): boolean {
+  if (!user?.role) return false;
+  if (isAdmin(user)) return true;
+  const perms = permSet(user);
+  return perms.has('/tiwater-quotes') || perms.has('/tiwater-catalog');
+}
+

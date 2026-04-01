@@ -1,81 +1,107 @@
 import { Helmet } from 'react-helmet-async';
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Box,
-  Container,
-  Typography,
-  Grid,
+  Button,
   Card,
   CardContent,
   CardMedia,
-  Button,
-  TextField,
+  Chip,
+  CircularProgress,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  Grid,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText,
   Paper,
+  Tab,
+  Tabs,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  IconButton,
-  Alert,
-  CircularProgress,
-  Divider,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  List,
-  ListItem,
-  ListItemText,
+  TextField,
+  Typography,
 } from '@mui/material';
-import { 
-  Add as AddIcon, 
-  Delete as DeleteIcon, 
-  Search as SearchIcon,
+import {
+  Add as AddIcon,
+  Close as CloseIcon,
+  Delete as DeleteIcon,
   Info as InfoIcon,
-  Close as CloseIcon 
+  Search as SearchIcon,
 } from '@mui/icons-material';
+import { Link } from 'react-router-dom';
+import { useAuth } from 'src/auth/auth-context';
+import { canManageTiwaterQuotes } from 'src/auth/permissions';
 import { Header } from 'src/components/header';
 import { Footer } from 'src/components/footer';
 import { productService } from 'src/services/product.service';
 import { quoteService } from 'src/services/quote.service';
 import type { Product } from 'src/types/product.types';
-import type { Quote, QuoteItem } from 'src/types/quote.types';
+import type { Quote, QuoteItem, QuoteStatus } from 'src/types/quote.types';
 
 export function CotizacionesPage() {
+  const { isAuthenticated, user } = useAuth();
+  const isQuoteManager = canManageTiwaterQuotes(user);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'crear' | 'mis-cotizaciones' | 'gestionar'>('crear');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productModalOpen, setProductModalOpen] = useState(false);
-
-  // Quote state
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientAddress, setClientAddress] = useState('');
-  const [tax, setTax] = useState(0);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [myQuotes, setMyQuotes] = useState<Quote[]>([]);
+  const [allQuotes, setAllQuotes] = useState<Quote[]>([]);
+  const [loadingQuotes, setLoadingQuotes] = useState(false);
+  const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
+  const [savingQuote, setSavingQuote] = useState(false);
 
-  // Load products on mount and when filters change
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      fetchProducts();
+      void fetchProducts();
     }, 300); // Debounce search
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm, selectedCategory]);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (tab === 'mis-cotizaciones') {
+      void fetchMyQuotes();
+    }
+    if (tab === 'gestionar' && isQuoteManager) {
+      void fetchAllQuotes();
+    }
+  }, [isAuthenticated, tab, isQuoteManager]);
+
+  const catalogPriceByProduct = useMemo(() => {
+    const map = new Map<number, number>();
+    products.forEach((product) => {
+      map.set(product.id, Number(product.price || 0));
+    });
+    return map;
+  }, [products]);
+
   const fetchProducts = async () => {
     setLoading(true);
-    setError(null);
     try {
       const filters = {
         isActive: true,
@@ -86,26 +112,43 @@ export function CotizacionesPage() {
       const response = await productService.getAll(filters);
       setProducts(response.products);
     } catch (err: any) {
-      console.error('Error fetching products:', err);
       setError(err.message || 'Error al cargar productos');
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchMyQuotes = async () => {
+    setLoadingQuotes(true);
+    try {
+      const response = await quoteService.getAll({ limit: 200, offset: 0 });
+      setMyQuotes(response.quotes || []);
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Error al cargar cotizaciones');
+    } finally {
+      setLoadingQuotes(false);
+    }
+  };
+
+  const fetchAllQuotes = async () => {
+    setLoadingQuotes(true);
+    try {
+      const response = await quoteService.getAll({ limit: 300, offset: 0 });
+      setAllQuotes(response.quotes || []);
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Error al cargar cotizaciones');
+    } finally {
+      setLoadingQuotes(false);
+    }
+  };
+
   const handleAddProduct = (product: Product) => {
     const existingItemIndex = quoteItems.findIndex((item) => item.productId === product.id);
-    
     if (existingItemIndex >= 0) {
-      // Update quantity if product already exists
       const updatedItems = [...quoteItems];
       updatedItems[existingItemIndex].quantity += 1;
-      updatedItems[existingItemIndex].subtotal =
-        updatedItems[existingItemIndex].quantity * updatedItems[existingItemIndex].unitPrice -
-        (updatedItems[existingItemIndex].discount || 0);
       setQuoteItems(updatedItems);
     } else {
-      // Add new product
       const newItem: QuoteItem = {
         productId: product.id,
         product: {
@@ -115,9 +158,10 @@ export function CotizacionesPage() {
           category: product.category,
         },
         quantity: 1,
-        unitPrice: product.price || 0, // Price will be set manually in quote form
+        unitPrice: 0,
         discount: 0,
-        subtotal: 0, // Will be calculated when user sets price in quote form
+        subtotal: 0,
+        notes: '',
       };
       setQuoteItems([...quoteItems, newItem]);
     }
@@ -128,20 +172,11 @@ export function CotizacionesPage() {
     setQuoteItems(updatedItems);
   };
 
-  const handleUpdateItem = (index: number, field: 'quantity' | 'unitPrice' | 'discount', value: number) => {
+  const handleUpdateItem = (index: number, field: 'quantity' | 'notes', value: number | string) => {
     const updatedItems = [...quoteItems];
-    updatedItems[index][field] = value;
-    updatedItems[index].subtotal =
-      updatedItems[index].quantity * updatedItems[index].unitPrice - (updatedItems[index].discount || 0);
+    if (field === 'quantity') updatedItems[index].quantity = Number(value);
+    if (field === 'notes') updatedItems[index].notes = String(value);
     setQuoteItems(updatedItems);
-  };
-
-  const calculateSubtotal = () => {
-    return quoteItems.reduce((sum, item) => sum + item.subtotal, 0);
-  };
-
-  const calculateTotal = () => {
-    return calculateSubtotal() + tax;
   };
 
   const handleSubmitQuote = async () => {
@@ -165,32 +200,82 @@ export function CotizacionesPage() {
         clientPhone: clientPhone.trim() || undefined,
         clientAddress: clientAddress.trim() || undefined,
         items: quoteItems,
-        subtotal: calculateSubtotal(),
-        tax: tax || 0,
-        total: calculateTotal(),
+        subtotal: 0,
+        tax: 0,
+        total: 0,
         notes: notes.trim() || undefined,
-        status: 'draft',
+        status: 'pendiente',
       };
 
-      const createdQuote = await quoteService.create(quote);
-      console.log('Quote created:', createdQuote);
+      await quoteService.create(quote);
       setSubmitSuccess(true);
-
-      // Reset form
       setQuoteItems([]);
       setClientName('');
       setClientEmail('');
       setClientPhone('');
       setClientAddress('');
-      setTax(0);
       setNotes('');
+      setTab('mis-cotizaciones');
+      await fetchMyQuotes();
 
       setTimeout(() => setSubmitSuccess(false), 5000);
     } catch (err: any) {
-      console.error('Error creating quote:', err);
       setError(err.response?.data?.message || err.message || 'Error al crear la cotización');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleAutofillCatalogPrice = (itemIndex: number) => {
+    if (!editingQuote?.items) return;
+    const item = editingQuote.items[itemIndex];
+    const catalogPrice = catalogPriceByProduct.get(item.productId) || 0;
+    const nextItems = [...editingQuote.items];
+    nextItems[itemIndex] = {
+      ...item,
+      unitPrice: catalogPrice,
+      subtotal: item.quantity * catalogPrice - (item.discount || 0),
+    };
+    setEditingQuote({ ...editingQuote, items: nextItems });
+  };
+
+  const handleUpdateManagedItem = (
+    itemIndex: number,
+    field: 'quantity' | 'unitPrice' | 'discount' | 'notes',
+    value: number | string
+  ) => {
+    if (!editingQuote?.items) return;
+    const nextItems = [...editingQuote.items];
+    const target = { ...nextItems[itemIndex] };
+    if (field === 'notes') target.notes = String(value);
+    if (field === 'quantity') target.quantity = Number(value);
+    if (field === 'unitPrice') target.unitPrice = Number(value);
+    if (field === 'discount') target.discount = Number(value);
+    target.subtotal = target.quantity * target.unitPrice - (target.discount || 0);
+    nextItems[itemIndex] = target;
+    setEditingQuote({ ...editingQuote, items: nextItems });
+  };
+
+  const handleRespondQuote = async () => {
+    if (!editingQuote?.id || !editingQuote.items) return;
+    setSavingQuote(true);
+    try {
+      const subtotal = editingQuote.items.reduce((sum, item) => sum + item.subtotal, 0);
+      const tax = Number(editingQuote.tax || 0);
+      await quoteService.update(editingQuote.id, {
+        items: editingQuote.items,
+        notes: editingQuote.notes,
+        subtotal,
+        tax,
+        total: subtotal + tax,
+        status: 'enviada' as QuoteStatus,
+      });
+      setEditingQuote(null);
+      await fetchAllQuotes();
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Error al responder cotización');
+    } finally {
+      setSavingQuote(false);
     }
   };
 
@@ -207,7 +292,7 @@ export function CotizacionesPage() {
         <Box component="main" sx={{ flex: 1, mt: '100px', py: 4 }}>
           <Container maxWidth="xl">
             <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 4 }}>
-              Crear Cotización
+              Cotizaciones
             </Typography>
 
             {error && (
@@ -218,11 +303,18 @@ export function CotizacionesPage() {
 
             {submitSuccess && (
               <Alert severity="success" sx={{ mb: 3 }}>
-                ¡Cotización creada exitosamente!
+                Cotización creada y enviada como pendiente.
               </Alert>
             )}
 
-            <Grid container spacing={4}>
+            <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ mb: 3 }}>
+              <Tab label="Crear cotización" value="crear" />
+              {isAuthenticated && <Tab label="Mis cotizaciones" value="mis-cotizaciones" />}
+              {isAuthenticated && isQuoteManager && <Tab label="Gestionar cotizaciones" value="gestionar" />}
+            </Tabs>
+
+            {tab === 'crear' && (
+              <Grid container spacing={4}>
               {/* Left Column - Products Catalog */}
               <Grid item xs={12} md={8}>
                 <Paper sx={{ p: 3, mb: 3 }}>
@@ -450,8 +542,7 @@ export function CotizacionesPage() {
                           <TableRow>
                             <TableCell>Producto</TableCell>
                             <TableCell align="right">Cant.</TableCell>
-                            <TableCell align="right">Precio</TableCell>
-                            <TableCell align="right">Total</TableCell>
+                            <TableCell>Descripción / requerimiento</TableCell>
                             <TableCell></TableCell>
                           </TableRow>
                         </TableHead>
@@ -476,19 +567,16 @@ export function CotizacionesPage() {
                                   inputProps={{ min: 1 }}
                                 />
                               </TableCell>
-                              <TableCell align="right">
+                              <TableCell>
                                 <TextField
-                                  type="number"
                                   size="small"
-                                  value={item.unitPrice}
+                                  value={item.notes || ''}
                                   onChange={(e) =>
-                                    handleUpdateItem(index, 'unitPrice', parseFloat(e.target.value) || 0)
+                                    handleUpdateItem(index, 'notes', e.target.value)
                                   }
-                                  sx={{ width: 100 }}
+                                  fullWidth
+                                  placeholder="Describe necesidades para este producto"
                                 />
-                              </TableCell>
-                              <TableCell align="right">
-                                ${item.subtotal.toLocaleString()}
                               </TableCell>
                               <TableCell>
                                 <IconButton
@@ -508,24 +596,6 @@ export function CotizacionesPage() {
 
                   <Divider sx={{ my: 3 }} />
 
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Subtotal: ${calculateSubtotal().toLocaleString()}
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      label="Impuestos"
-                      type="number"
-                      size="small"
-                      value={tax}
-                      onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
-                      sx={{ mt: 1 }}
-                    />
-                    <Typography variant="h6" sx={{ mt: 2 }}>
-                      Total: ${calculateTotal().toLocaleString()}
-                    </Typography>
-                  </Box>
-
                   <TextField
                     fullWidth
                     label="Notas adicionales"
@@ -543,11 +613,112 @@ export function CotizacionesPage() {
                     onClick={handleSubmitQuote}
                     disabled={submitting || quoteItems.length === 0 || !clientName.trim()}
                   >
-                    {submitting ? <CircularProgress size={24} /> : 'Crear Cotización'}
+                    {submitting ? <CircularProgress size={24} /> : 'Enviar cotización'}
                   </Button>
                 </Paper>
               </Grid>
             </Grid>
+            )}
+
+            {tab === 'mis-cotizaciones' && isAuthenticated && (
+              <Paper sx={{ p: 2 }}>
+                {loadingQuotes ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : (
+                  <TableContainer>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Folio</TableCell>
+                          <TableCell>Cliente</TableCell>
+                          <TableCell>Status</TableCell>
+                          <TableCell>Productos</TableCell>
+                          <TableCell>Actualizada</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {myQuotes.map((quote) => (
+                          <TableRow key={quote.id}>
+                            <TableCell>{quote.quoteNumber}</TableCell>
+                            <TableCell>{quote.clientName}</TableCell>
+                            <TableCell>
+                              <Chip
+                                size="small"
+                                label={quote.status}
+                                color={quote.status === 'pendiente' ? 'warning' : 'success'}
+                              />
+                            </TableCell>
+                            <TableCell>{quote.items?.length || 0}</TableCell>
+                            <TableCell>{quote.updatedAt ? new Date(quote.updatedAt).toLocaleString() : '—'}</TableCell>
+                          </TableRow>
+                        ))}
+                        {myQuotes.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={5} align="center">
+                              No tienes cotizaciones aún
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </Paper>
+            )}
+
+            {tab === 'gestionar' && isAuthenticated && isQuoteManager && (
+              <Paper sx={{ p: 2 }}>
+                {loadingQuotes ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : (
+                  <TableContainer>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Folio</TableCell>
+                          <TableCell>Cliente</TableCell>
+                          <TableCell>Status</TableCell>
+                          <TableCell>Productos</TableCell>
+                          <TableCell></TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {allQuotes.map((quote) => (
+                          <TableRow key={quote.id}>
+                            <TableCell>{quote.quoteNumber}</TableCell>
+                            <TableCell>{quote.clientName}</TableCell>
+                            <TableCell>
+                              <Chip
+                                size="small"
+                                label={quote.status}
+                                color={quote.status === 'pendiente' ? 'warning' : 'success'}
+                              />
+                            </TableCell>
+                            <TableCell>{quote.items?.length || 0}</TableCell>
+                            <TableCell align="right">
+                              <Button variant="outlined" onClick={() => setEditingQuote(quote)}>
+                                Abrir
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {allQuotes.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={5} align="center">
+                              No hay cotizaciones para gestionar
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </Paper>
+            )}
           </Container>
         </Box>
         <Footer />
@@ -682,6 +853,75 @@ export function CotizacionesPage() {
               }}
             >
               Agregar a Cotización
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={Boolean(editingQuote)} onClose={() => setEditingQuote(null)} maxWidth="lg" fullWidth>
+          <DialogTitle>Responder cotización {editingQuote?.quoteNumber}</DialogTitle>
+          <DialogContent dividers>
+            {editingQuote?.items?.map((item, idx) => (
+              <Paper key={item.id || idx} sx={{ p: 2, mb: 2 }}>
+                <Grid container spacing={2} alignItems="center">
+                  <Grid item xs={12} md={4}>
+                    <Typography variant="subtitle2">{item.product?.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {item.product?.code}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6} md={2}>
+                    <TextField
+                      label="Cant."
+                      type="number"
+                      size="small"
+                      value={item.quantity}
+                      onChange={(e) => handleUpdateManagedItem(idx, 'quantity', Number(e.target.value) || 1)}
+                    />
+                  </Grid>
+                  <Grid item xs={6} md={2}>
+                    <TextField
+                      label="Precio"
+                      type="number"
+                      size="small"
+                      value={item.unitPrice}
+                      onChange={(e) => handleUpdateManagedItem(idx, 'unitPrice', Number(e.target.value) || 0)}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={2}>
+                    <Button fullWidth onClick={() => handleAutofillCatalogPrice(idx)} variant="outlined">
+                      Autollenar catálogo
+                    </Button>
+                  </Grid>
+                  <Grid item xs={12} md={2}>
+                    <Typography align="right" variant="subtitle2">
+                      ${item.subtotal.toLocaleString()}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Notas del vendedor"
+                      size="small"
+                      fullWidth
+                      value={item.notes || ''}
+                      onChange={(e) => handleUpdateManagedItem(idx, 'notes', e.target.value)}
+                    />
+                  </Grid>
+                </Grid>
+              </Paper>
+            ))}
+            <TextField
+              fullWidth
+              label="Notas generales de respuesta"
+              multiline
+              minRows={3}
+              value={editingQuote?.notes || ''}
+              onChange={(e) => setEditingQuote((prev) => (prev ? { ...prev, notes: e.target.value } : prev))}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditingQuote(null)}>Cerrar</Button>
+            <Button variant="contained" onClick={handleRespondQuote} disabled={savingQuote}>
+              {savingQuote ? <CircularProgress size={20} /> : 'Responder y marcar enviada'}
             </Button>
           </DialogActions>
         </Dialog>

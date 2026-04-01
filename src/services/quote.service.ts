@@ -1,7 +1,7 @@
 // src/services/quote.service.ts
 // Service for TI Water quotes API calls
 
-import { get, post } from 'src/api/axiosHelper';
+import { get, patch, post } from 'src/api/axiosHelper';
 import type { Quote, QuoteResponse } from 'src/types/quote.types';
 
 export const quoteService = {
@@ -22,6 +22,11 @@ export const quoteService = {
 
   getById: async (id: number): Promise<Quote> => {
     const response = await get<Quote>(`/quotes/${id}`);
+    return response;
+  },
+
+  update: async (id: number, quote: Partial<Quote>): Promise<Quote> => {
+    const response = await patch<Quote>(`/quotes/${id}`, quote);
     return response;
   },
 };
