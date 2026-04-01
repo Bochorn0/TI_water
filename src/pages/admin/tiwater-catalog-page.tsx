@@ -2,29 +2,14 @@ import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import {
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  IconButton,
-  MenuItem,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Chip, IconButton, MenuItem, TextField, Typography } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { CONFIG } from 'src/config-global';
-import { get, del } from 'src/api/axiosHelper';
+import { get, del, patch } from 'src/api/axiosHelper';
 import type { Product, ProductResponse } from 'src/types/product.types';
 import { getApiErrorMessage } from 'src/utils/api-error';
+import { AdminDataTable, type AdminColumnDef } from 'src/components/admin/AdminDataTable';
 
 const categories = ['general', 'presurizadores', 'valvulas_sistemas', 'sumergibles', 'plomeria'];
 const categoryLabels: Record<string, string> = {
@@ -39,19 +24,17 @@ export function TiwaterCatalogAdminPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
 
   useEffect(() => {
     void fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, categoryFilter]);
+  }, [categoryFilter]);
 
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const filters: Record<string, string | number> = { limit: 100 };
-      if (searchTerm) filters.search = searchTerm;
+      const filters: Record<string, string | number> = { limit: 500 };
       if (categoryFilter) filters.category = categoryFilter;
       const response = await get<ProductResponse>('/products', filters);
       setProducts(response.products || []);
@@ -73,120 +56,157 @@ export function TiwaterCatalogAdminPage() {
     }
   };
 
+  const columns: AdminColumnDef<Product>[] = [
+    {
+      id: 'code',
+      header: 'Código',
+      cell: (p) => p.code,
+    },
+    {
+      id: 'name',
+      header: 'Nombre',
+      cell: (p) => p.name,
+    },
+    {
+      id: 'category',
+      header: 'Categoría',
+      cell: (p) => (p.category ? categoryLabels[p.category] || p.category : '—'),
+    },
+    {
+      id: 'price',
+      header: 'Precio',
+      cell: (p) => (p.price != null ? `$${Number(p.price).toFixed(2)}` : '—'),
+    },
+    {
+      id: 'status',
+      header: 'Estado',
+      cell: (p) => (
+        <Chip
+          size="small"
+          label={p.isActive ? 'Activo' : 'Inactivo'}
+          color={p.isActive ? 'success' : 'default'}
+        />
+      ),
+    },
+  ];
+
   return (
     <>
       <Helmet>
         <title>Catálogo TI Water — {CONFIG.appName}</title>
       </Helmet>
       <Box sx={{ p: 2, maxWidth: 1200, mx: 'auto' }}>
-        <Typography variant="h5" sx={{ mb: 2 }}>
-          Catálogo de productos (admin)
-        </Typography>
-        <Box
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 2,
-            mb: 2,
-            alignItems: 'center',
-          }}
-        >
-          <TextField
-            size="small"
-            placeholder="Buscar…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ minWidth: 200 }}
-          />
-          <TextField
-            select
-            size="small"
-            label="Categoría"
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            SelectProps={{ displayEmpty: true }}
-            sx={{ minWidth: 200 }}
-          >
-            <MenuItem value="">Todas</MenuItem>
-            {categories.map((c) => (
-              <MenuItem key={c} value={c}>
-                {categoryLabels[c]}
-              </MenuItem>
-            ))}
-          </TextField>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 2, mb: 1 }}>
+          <Typography variant="h5">Catálogo de productos (admin)</Typography>
           <Button variant="contained" onClick={() => navigate('/admin/catalogo/nuevo')}>
             Añadir producto
           </Button>
         </Box>
 
-        <TableContainer component={Paper}>
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ bgcolor: 'action.hover' }}>
-                  <TableCell>Código</TableCell>
-                  <TableCell>Nombre</TableCell>
-                  <TableCell>Categoría</TableCell>
-                  <TableCell>Precio</TableCell>
-                  <TableCell>Estado</TableCell>
-                  <TableCell align="right">Acciones</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {products.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      <Typography color="text.secondary">No hay productos</Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  products.map((p) => (
-                    <TableRow key={p.id} hover>
-                      <TableCell>{p.code}</TableCell>
-                      <TableCell>{p.name}</TableCell>
-                      <TableCell>
-                        {p.category ? categoryLabels[p.category] || p.category : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {p.price != null ? `$${Number(p.price).toFixed(2)}` : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          label={p.isActive ? 'Activo' : 'Inactivo'}
-                          color={p.isActive ? 'success' : 'default'}
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => navigate(`/admin/catalogo/${p.id}`)}
-                          aria-label="editar"
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDelete(p.id)}
-                          aria-label="eliminar"
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+        <AdminDataTable<Product>
+          rows={products}
+          rowId={(p) => p.id}
+          columns={columns}
+          loading={loading}
+          getRowSearchText={(p) =>
+            [p.code, p.name, p.description, p.category, p.catalogSource, String(p.price ?? '')]
+              .filter(Boolean)
+              .join(' ')
+          }
+          searchPlaceholder="Buscar por código, nombre, categoría…"
+          toolbarExtras={
+            <TextField
+              select
+              size="small"
+              label="Categoría"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              SelectProps={{ displayEmpty: true }}
+              sx={{ minWidth: 200 }}
+            >
+              <MenuItem value="">Todas</MenuItem>
+              {categories.map((c) => (
+                <MenuItem key={c} value={c}>
+                  {categoryLabels[c]}
+                </MenuItem>
+              ))}
+            </TextField>
+          }
+          bulkActions={[
+            {
+              key: 'activate',
+              label: 'Activar seleccionados',
+              color: 'success',
+              onExecute: async (rows) => {
+                try {
+                  await Promise.all(
+                    rows.map((p) => patch(`/products/${p.id}`, { isActive: true })),
+                  );
+                  toast.success(`${rows.length} producto(s) activados`);
+                  void fetchProducts();
+                } catch (err) {
+                  toast.error(getApiErrorMessage(err, 'Error al activar'));
+                }
+              },
+            },
+            {
+              key: 'deactivate',
+              label: 'Desactivar seleccionados',
+              color: 'warning',
+              variant: 'outlined',
+              onExecute: async (rows) => {
+                try {
+                  await Promise.all(
+                    rows.map((p) => patch(`/products/${p.id}`, { isActive: false })),
+                  );
+                  toast.success(`${rows.length} producto(s) desactivados`);
+                  void fetchProducts();
+                } catch (err) {
+                  toast.error(getApiErrorMessage(err, 'Error al desactivar'));
+                }
+              },
+            },
+            {
+              key: 'delete',
+              label: 'Eliminar seleccionados',
+              color: 'error',
+              variant: 'outlined',
+              onExecute: async (rows) => {
+                if (!window.confirm(`¿Eliminar ${rows.length} producto(s)?`)) return;
+                try {
+                  await Promise.all(rows.map((p) => del(`/products/${p.id}`)));
+                  toast.success('Productos eliminados');
+                  void fetchProducts();
+                } catch (err) {
+                  toast.error(getApiErrorMessage(err, 'Error al eliminar'));
+                }
+              },
+            },
+          ]}
+          renderActions={(p) => (
+            <>
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={() => navigate(`/admin/catalogo/${p.id}`)}
+                aria-label="editar"
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => handleDelete(p.id)}
+                aria-label="eliminar"
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </>
           )}
-        </TableContainer>
+          emptyMessage="No hay productos"
+          defaultRowsPerPage={10}
+        />
       </Box>
     </>
   );

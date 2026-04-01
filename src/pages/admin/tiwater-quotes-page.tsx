@@ -4,19 +4,12 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Grid,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
@@ -24,6 +17,7 @@ import { productService } from 'src/services/product.service';
 import { quoteService } from 'src/services/quote.service';
 import type { Product } from 'src/types/product.types';
 import type { Quote, QuoteItem, QuoteStatus } from 'src/types/quote.types';
+import { AdminDataTable, type AdminColumnDef } from 'src/components/admin/AdminDataTable';
 
 export function TiwaterQuotesAdminPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -58,7 +52,7 @@ export function TiwaterQuotesAdminPage() {
   const fetchQuotes = async () => {
     setLoading(true);
     try {
-      const response = await quoteService.getAll({ limit: 300, offset: 0 });
+      const response = await quoteService.getAll({ limit: 500, offset: 0 });
       setQuotes(response.quotes || []);
     } catch (err: any) {
       setError(err.response?.data?.message || err.message || 'Error al cargar cotizaciones');
@@ -72,7 +66,7 @@ export function TiwaterQuotesAdminPage() {
       const response = await productService.getAll({ isActive: true, limit: 500 });
       setProducts(response.products || []);
     } catch {
-      // Keep management usable even when catalog lookup fails.
+      /* optional */
     }
   };
 
@@ -120,6 +114,63 @@ export function TiwaterQuotesAdminPage() {
     }
   };
 
+  const bulkMarkEnviada = async (rows: Quote[]) => {
+    if (
+      !window.confirm(
+        `¿Marcar ${rows.length} cotización(es) como enviada(s)? Revisa precios antes si aplica.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    try {
+      await Promise.all(
+        rows.map((q) =>
+          quoteService.update(q.id!, {
+            status: 'enviada' as QuoteStatus,
+          }),
+        ),
+      );
+      await fetchQuotes();
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Error en actualización masiva');
+    }
+  };
+
+  const columns: AdminColumnDef<Quote>[] = [
+    {
+      id: 'folio',
+      header: 'Folio',
+      cell: (q) => q.quoteNumber,
+    },
+    {
+      id: 'client',
+      header: 'Cliente',
+      cell: (q) => q.clientName,
+    },
+    {
+      id: 'status',
+      header: 'Estado',
+      cell: (q) => (
+        <Chip
+          size="small"
+          label={q.status}
+          color={q.status === 'pendiente' ? 'warning' : 'success'}
+        />
+      ),
+    },
+    {
+      id: 'items',
+      header: 'Productos',
+      cell: (q) => q.items?.length ?? 0,
+    },
+    {
+      id: 'updated',
+      header: 'Actualizada',
+      cell: (q) => (q.updatedAt ? new Date(q.updatedAt).toLocaleString() : '—'),
+    },
+  ];
+
   return (
     <Box sx={{ p: 2 }}>
       <Typography variant="h5" sx={{ mb: 2 }}>
@@ -130,51 +181,33 @@ export function TiwaterQuotesAdminPage() {
           {error}
         </Alert>
       )}
-      <Paper>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Folio</TableCell>
-                  <TableCell>Cliente</TableCell>
-                  <TableCell>Estado</TableCell>
-                  <TableCell>Productos</TableCell>
-                  <TableCell align="right">Acciones</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {quotes.map((quote) => (
-                  <TableRow key={quote.id}>
-                    <TableCell>{quote.quoteNumber}</TableCell>
-                    <TableCell>{quote.clientName}</TableCell>
-                    <TableCell>
-                      <Chip size="small" label={quote.status} color={quote.status === 'pendiente' ? 'warning' : 'success'} />
-                    </TableCell>
-                    <TableCell>{quote.items?.length || 0}</TableCell>
-                    <TableCell align="right">
-                      <Button size="small" variant="outlined" onClick={() => setEditingQuote(quote)}>
-                        Abrir
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {quotes.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center">
-                      Sin cotizaciones por ahora
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+
+      <AdminDataTable<Quote>
+        rows={quotes}
+        rowId={(q) => q.id!}
+        columns={columns}
+        loading={loading}
+        getRowSearchText={(q) =>
+          [q.quoteNumber, q.clientName, q.clientEmail, q.status, q.notes].filter(Boolean).join(' ')
+        }
+        searchPlaceholder="Buscar por folio, cliente, estado…"
+        bulkActions={[
+          {
+            key: 'enviada',
+            label: 'Marcar como enviada',
+            color: 'primary',
+            filterRows: (q) => q.status === 'pendiente',
+            onExecute: bulkMarkEnviada,
+          },
+        ]}
+        renderActions={(q) => (
+          <Button size="small" variant="outlined" onClick={() => setEditingQuote(q)}>
+            Abrir
+          </Button>
         )}
-      </Paper>
+        emptyMessage="Sin cotizaciones por ahora"
+        defaultRowsPerPage={10}
+      />
 
       <Dialog open={Boolean(editingQuote)} onClose={() => setEditingQuote(null)} maxWidth="lg" fullWidth>
         <DialogTitle>Responder cotización {editingQuote?.quoteNumber}</DialogTitle>
@@ -244,9 +277,9 @@ export function TiwaterQuotesAdminPage() {
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
-                    fullWidth
-                    size="small"
                     label="Notas del vendedor"
+                    size="small"
+                    fullWidth
                     value={item.notes || ''}
                     onChange={(e) => updateItem(index, 'notes', e.target.value)}
                   />
@@ -266,7 +299,7 @@ export function TiwaterQuotesAdminPage() {
         <DialogActions>
           <Button onClick={() => setEditingQuote(null)}>Cerrar</Button>
           <Button variant="contained" onClick={respondQuote} disabled={saving}>
-            {saving ? <CircularProgress size={20} /> : 'Responder y marcar enviada'}
+            {saving ? 'Guardando…' : 'Responder y marcar enviada'}
           </Button>
         </DialogActions>
       </Dialog>
