@@ -4,11 +4,13 @@ import { Header } from 'src/components/header';
 import { useAuth } from 'src/auth/auth-context';
 import {
   canManageTiwaterCatalog,
+  canManageTiwaterQuotes,
   canManageUsersAndRoles,
 } from 'src/auth/permissions';
 
 function tabValue(pathname: string): string {
   if (pathname.startsWith('/admin/catalogo')) return 'catalogo';
+  if (pathname.startsWith('/admin/cotizaciones')) return 'cotizaciones';
   if (pathname.startsWith('/admin/usuarios')) return 'usuarios';
   if (pathname.startsWith('/admin/roles')) return 'roles';
   if (pathname.startsWith('/admin/ajustes')) return 'ajustes';
@@ -21,11 +23,13 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const showUsers = canManageUsersAndRoles(user);
   const showCatalog = canManageTiwaterCatalog(user);
+  const showQuotes = canManageTiwaterQuotes(user);
   const current = tabValue(location.pathname);
 
   const handleTabChange = (_: React.SyntheticEvent, value: string) => {
     const paths: Record<string, string> = {
       catalogo: '/admin/catalogo',
+      cotizaciones: '/admin/cotizaciones',
       usuarios: '/admin/usuarios',
       roles: '/admin/roles',
       ajustes: '/admin/ajustes',
@@ -58,6 +62,7 @@ export function AdminLayout() {
             aria-label="Herramientas de administración"
           >
             {showCatalog && <Tab label="Catálogo" value="catalogo" id="admin-tab-catalogo" />}
+            {showQuotes && <Tab label="Cotizaciones" value="cotizaciones" id="admin-tab-cotizaciones" />}
             {showUsers && <Tab label="Usuarios" value="usuarios" id="admin-tab-usuarios" />}
             {showUsers && <Tab label="Roles" value="roles" id="admin-tab-roles" />}
             <Tab label="Cuenta" value="ajustes" id="admin-tab-ajustes" />

@@ -214,8 +214,6 @@ export function CotizacionesPage() {
       setClientPhone('');
       setClientAddress('');
       setNotes('');
-      setTab('mis-cotizaciones');
-      await fetchMyQuotes();
 
       setTimeout(() => setSubmitSuccess(false), 5000);
     } catch (err: any) {

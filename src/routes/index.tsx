@@ -10,11 +10,13 @@ import { TiwaterCatalogProductAdminPage } from 'src/pages/admin/tiwater-catalog-
 import { AdminUsersPage } from 'src/pages/admin/admin-users-page';
 import { AdminRolesPage } from 'src/pages/admin/admin-roles-page';
 import { AdminSettingsPage } from 'src/pages/admin/admin-settings-page';
+import { TiwaterQuotesAdminPage } from 'src/pages/admin/tiwater-quotes-page';
 import { ProtectedAdminRoute } from 'src/components/auth/protected-route';
 import { AdminLayout } from 'src/components/admin/admin-layout';
 import { AdminIndexRedirect } from 'src/components/admin/admin-index-redirect';
 import { CatalogRouteGuard } from 'src/components/admin/catalog-route-guard';
 import { UsersRouteGuard } from 'src/components/admin/users-route-guard';
+import { QuotesRouteGuard } from 'src/components/admin/quotes-route-guard';
 
 export function Router() {
   return (
@@ -49,6 +51,14 @@ export function Router() {
             <CatalogRouteGuard>
               <TiwaterCatalogProductAdminPage />
             </CatalogRouteGuard>
+          }
+        />
+        <Route
+          path="cotizaciones"
+          element={
+            <QuotesRouteGuard>
+              <TiwaterQuotesAdminPage />
+            </QuotesRouteGuard>
           }
         />
         <Route
