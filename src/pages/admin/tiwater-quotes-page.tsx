@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Autocomplete,
@@ -52,6 +52,29 @@ function recalcTotals(items: QuoteItem[], includeIva: boolean) {
   return { subtotal, tax, total: subtotal + tax };
 }
 
+function normalizeQuantity(qty: unknown): number {
+  const n = Number(qty);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.floor(n);
+}
+
+function lineSubtotal(quantity: number, unitPrice: number, discount: number) {
+  return round2(quantity * unitPrice - discount);
+}
+
+/** Coerce quantities to integers and fix subtotals (e.g. after loading from API). */
+function normalizeQuoteItemsForEdit(items: QuoteItem[]): QuoteItem[] {
+  return items.map((it) => {
+    const quantity = normalizeQuantity(it.quantity);
+    const discount = Number(it.discount) || 0;
+    return {
+      ...it,
+      quantity,
+      subtotal: lineSubtotal(quantity, it.unitPrice, discount),
+    };
+  });
+}
+
 function itemsForApi(items: QuoteItem[]) {
   return items.map((it) => {
     const manual = isManualLine(it);
@@ -83,6 +106,7 @@ export function TiwaterQuotesAdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [includeIva, setIncludeIva] = useState(true);
+  const includeIvaRef = useRef(true);
   const [feeMarginPct, setFeeMarginPct] = useState<number>(0);
   const [catalogDialogOpen, setCatalogDialogOpen] = useState(false);
 
@@ -133,8 +157,14 @@ export function TiwaterQuotesAdminPage() {
     if (!editingQuote?.items) return;
     const st = editingQuote.items.reduce((s, i) => s + i.subtotal, 0);
     const tx = Number(editingQuote.tax ?? 0);
-    setIncludeIva(!(st > 0 && tx === 0));
+    const next = !(st > 0 && tx === 0);
+    setIncludeIva(next);
+    includeIvaRef.current = next;
   }, [editingQuote?.id]);
+
+  useEffect(() => {
+    includeIvaRef.current = includeIva;
+  }, [includeIva]);
 
   const mergeQuoteWithRecalc = useCallback(
     (base: Quote, items: QuoteItem[], iva: boolean) => {
@@ -153,10 +183,10 @@ export function TiwaterQuotesAdminPage() {
     const items = [...editingQuote.items];
     const item = { ...items[index] };
     if (field === 'notes') item.notes = String(value);
-    if (field === 'quantity') item.quantity = Number(value);
+    if (field === 'quantity') item.quantity = normalizeQuantity(value);
     if (field === 'unitPrice') item.unitPrice = Number(value);
     if (field === 'discount') item.discount = Number(value);
-    item.subtotal = item.quantity * item.unitPrice - (item.discount || 0);
+    item.subtotal = lineSubtotal(item.quantity, item.unitPrice, item.discount || 0);
     items[index] = item;
     setEditingQuote(mergeQuoteWithRecalc(editingQuote, items, includeIva));
   };
@@ -184,16 +214,26 @@ export function TiwaterQuotesAdminPage() {
     updateItem(index, 'unitPrice', list);
   };
 
-  const applyMarginToCatalogLines = () => {
-    if (!editingQuote?.items) return;
-    const items = editingQuote.items.map((it) => {
-      if (isManualLine(it) || it.productId == null) return it;
-      const list = it.catalogListPrice ?? catalogPriceByProduct.get(it.productId) ?? 0;
-      const unitPrice = round2(list * (1 + feeMarginPct / 100));
-      const subtotal = it.quantity * unitPrice - (it.discount || 0);
-      return { ...it, catalogListPrice: list, unitPrice, subtotal };
+  const applyMarginPctToItems = useCallback(
+    (items: QuoteItem[], marginPct: number, iva: boolean, baseQuote: Quote) => {
+      const next = items.map((it) => {
+        if (isManualLine(it) || it.productId == null) return it;
+        const list = it.catalogListPrice ?? catalogPriceByProduct.get(it.productId) ?? 0;
+        const unitPrice = round2(list * (1 + marginPct / 100));
+        const subtotal = lineSubtotal(it.quantity, unitPrice, it.discount || 0);
+        return { ...it, catalogListPrice: list, unitPrice, subtotal };
+      });
+      return mergeQuoteWithRecalc(baseQuote, next, iva);
+    },
+    [catalogPriceByProduct, mergeQuoteWithRecalc],
+  );
+
+  const handleFeeMarginChange = (nextMargin: number) => {
+    setFeeMarginPct(nextMargin);
+    setEditingQuote((prev) => {
+      if (!prev?.items?.length) return prev;
+      return applyMarginPctToItems(prev.items, nextMargin, includeIvaRef.current, prev);
     });
-    setEditingQuote(mergeQuoteWithRecalc(editingQuote, items, includeIva));
   };
 
   const removeItem = (index: number) => {
@@ -248,6 +288,7 @@ export function TiwaterQuotesAdminPage() {
   };
 
   const setIncludeIvaAndRecalc = (next: boolean) => {
+    includeIvaRef.current = next;
     setIncludeIva(next);
     if (!editingQuote?.items) return;
     setEditingQuote(mergeQuoteWithRecalc(editingQuote, editingQuote.items, next));
@@ -365,7 +406,20 @@ export function TiwaterQuotesAdminPage() {
           },
         ]}
         renderActions={(q) => (
-          <Button size="small" variant="outlined" onClick={() => setEditingQuote(q)}>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => {
+              const items = normalizeQuoteItemsForEdit(q.items || []);
+              const st = items.reduce((s, it) => s + it.subtotal, 0);
+              const tx = Number(q.tax ?? 0);
+              const iva = !(st > 0 && tx === 0);
+              setIncludeIva(iva);
+              includeIvaRef.current = iva;
+              const { subtotal, tax, total } = recalcTotals(items, iva);
+              setEditingQuote({ ...q, items, subtotal, tax, total });
+            }}
+          >
             Abrir
           </Button>
         )}
@@ -387,7 +441,7 @@ export function TiwaterQuotesAdminPage() {
                     labelId="fee-margin-label"
                     label="Margen / fee sobre lista"
                     value={feeMarginPct}
-                    onChange={(e) => setFeeMarginPct(Number(e.target.value))}
+                    onChange={(e) => handleFeeMarginChange(Number(e.target.value))}
                   >
                     {FEE_MARGIN_OPTIONS.map((n) => (
                       <MenuItem key={n} value={n}>
@@ -396,9 +450,6 @@ export function TiwaterQuotesAdminPage() {
                     ))}
                   </Select>
                 </FormControl>
-                <Button variant="outlined" size="small" onClick={applyMarginToCatalogLines}>
-                  Aplicar margen a líneas de catálogo
-                </Button>
                 <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => setCatalogDialogOpen(true)}>
                   Agregar del catálogo
                 </Button>
@@ -414,9 +465,9 @@ export function TiwaterQuotesAdminPage() {
                       <TextField
                         type="number"
                         size="small"
-                        inputProps={{ min: 0, step: 0.01, style: { textAlign: 'center' } }}
+                        inputProps={{ min: 0, step: 1, style: { textAlign: 'center' } }}
                         value={item.quantity}
-                        onChange={(e) => updateItem(index, 'quantity', Number(e.target.value) || 0)}
+                        onChange={(e) => updateItem(index, 'quantity', e.target.value)}
                         sx={{ width: 80 }}
                       />
                     </TableCell>

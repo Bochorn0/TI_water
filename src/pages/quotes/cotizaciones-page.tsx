@@ -48,6 +48,12 @@ import { quoteService } from 'src/services/quote.service';
 import type { Product } from 'src/types/product.types';
 import type { Quote, QuoteItem, QuoteStatus } from 'src/types/quote.types';
 
+function catalogLineQuantity(value: unknown): number {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return n;
+}
+
 export function CotizacionesPage() {
   const { isAuthenticated, user } = useAuth();
   const isQuoteManager = canManageTiwaterQuotes(user);
@@ -173,7 +179,7 @@ export function CotizacionesPage() {
 
   const handleUpdateItem = (index: number, field: 'quantity' | 'notes', value: number | string) => {
     const updatedItems = [...quoteItems];
-    if (field === 'quantity') updatedItems[index].quantity = Number(value);
+    if (field === 'quantity') updatedItems[index].quantity = catalogLineQuantity(value);
     if (field === 'notes') updatedItems[index].notes = String(value);
     setQuoteItems(updatedItems);
   };
@@ -246,7 +252,7 @@ export function CotizacionesPage() {
     const nextItems = [...editingQuote.items];
     const target = { ...nextItems[itemIndex] };
     if (field === 'notes') target.notes = String(value);
-    if (field === 'quantity') target.quantity = Number(value);
+    if (field === 'quantity') target.quantity = catalogLineQuantity(value);
     if (field === 'unitPrice') target.unitPrice = Number(value);
     if (field === 'discount') target.discount = Number(value);
     target.subtotal = target.quantity * target.unitPrice - (target.discount || 0);
@@ -558,11 +564,9 @@ export function CotizacionesPage() {
                                   type="number"
                                   size="small"
                                   value={item.quantity}
-                                  onChange={(e) =>
-                                    handleUpdateItem(index, 'quantity', parseFloat(e.target.value) || 1)
-                                  }
+                                  onChange={(e) => handleUpdateItem(index, 'quantity', e.target.value)}
                                   sx={{ width: 70 }}
-                                  inputProps={{ min: 1 }}
+                                  inputProps={{ min: 1, step: 1 }}
                                 />
                               </TableCell>
                               <TableCell>
@@ -873,7 +877,8 @@ export function CotizacionesPage() {
                       type="number"
                       size="small"
                       value={item.quantity}
-                      onChange={(e) => handleUpdateManagedItem(idx, 'quantity', Number(e.target.value) || 1)}
+                      inputProps={{ min: 1, step: 1 }}
+                      onChange={(e) => handleUpdateManagedItem(idx, 'quantity', e.target.value)}
                     />
                   </Grid>
                   <Grid item xs={6} md={2}>

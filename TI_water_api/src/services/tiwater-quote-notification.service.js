@@ -31,6 +31,26 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+/** For HTML attribute values (e.g. img src). Avoid full escapeHtml — it can break query strings. */
+function escapeAttrUrl(url) {
+  return String(url || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '%3C');
+}
+
+function stringifyEmailText(raw, maxLen = 4000) {
+  if (raw == null || raw === '') return '';
+  if (typeof raw === 'string') return raw.trim().slice(0, maxLen);
+  if (typeof raw === 'number' || typeof raw === 'boolean') return String(raw).slice(0, maxLen);
+  try {
+    return JSON.stringify(raw).slice(0, maxLen);
+  } catch {
+    return '';
+  }
+}
+
 function isValidEmail(email) {
   if (!email || typeof email !== 'string') return false;
   const t = email.trim();
@@ -56,8 +76,8 @@ function formatQty(value) {
 }
 
 function itemUnidadFromCategory(category) {
-  const c = typeof category === 'string' ? category.trim() : '';
-  return c.length > 0 ? escapeHtml(c.toUpperCase()) : UNIDAD_DEFAULT;
+  const c = stringifyEmailText(category, 200).trim();
+  return c.length > 0 ? escapeHtml(c.toUpperCase()) : escapeHtml(UNIDAD_DEFAULT);
 }
 
 /** Many clients store relative paths; email clients need absolute URLs for <img>. */
@@ -103,22 +123,40 @@ function parseImagesField(raw) {
 
 /** Normalize item shape for email (camelCase API, snake_case, or missing nested product). */
 function emailItemFields(it) {
-  const prod = it.product && typeof it.product === 'object' ? it.product : {};
+  const prod = it.product && typeof it.product === 'object' && !Array.isArray(it.product) ? it.product : {};
   const codeRaw = prod.code ?? it.code ?? it.manualCode ?? it.manual_code ?? '';
   const nameRaw = prod.name ?? it.name ?? it.manualName ?? it.manual_name ?? '';
   const descRaw = prod.description ?? it.description ?? '';
   const catRaw = prod.category ?? it.category ?? it.manualCategory ?? it.manual_category ?? '';
 
-  const qty = it.quantity ?? it.qty;
-  const unitPrice = it.unitPrice ?? it.unit_price;
-  const subtotal = it.subtotal ?? it.line_subtotal;
+  const qtyRaw = it.quantity ?? it.qty ?? 0;
+  const qty = Number(qtyRaw);
+  const qtySafe = Number.isFinite(qty) ? qty : 0;
+
+  let unitPrice = Number(it.unitPrice ?? it.unit_price);
+  if (!Number.isFinite(unitPrice)) unitPrice = NaN;
+
+  let subtotal = Number(it.subtotal ?? it.line_subtotal);
+  if (!Number.isFinite(subtotal)) subtotal = NaN;
+
+  const discount = Number(it.discount ?? it.discount_amount ?? 0);
+  const discountSafe = Number.isFinite(discount) ? discount : 0;
+
+  if (!Number.isFinite(subtotal) && Number.isFinite(unitPrice) && qtySafe >= 0) {
+    subtotal = qtySafe * unitPrice - discountSafe;
+  }
+  if (!Number.isFinite(unitPrice) && Number.isFinite(subtotal) && qtySafe > 0) {
+    unitPrice = (subtotal + discountSafe) / qtySafe;
+  }
+
   const notes = it.notes;
 
   const pid = it.productId ?? it.product_id;
-  const code = String(codeRaw || '').trim() || '—';
-  const name = String(nameRaw || '').trim() || (pid != null ? `Producto #${pid}` : 'Partida');
-  const description = String(descRaw || '').trim();
-  const category = String(catRaw || '').trim();
+  const code = stringifyEmailText(codeRaw, 120).trim() || '—';
+  let name = stringifyEmailText(nameRaw, 500).trim();
+  if (!name) name = pid != null && String(pid).length ? `Producto #${pid}` : 'Partida';
+  const description = stringifyEmailText(descRaw, 2000);
+  const category = stringifyEmailText(catRaw, 200);
 
   const images = parseImagesField(prod.images ?? it.images);
 
@@ -127,9 +165,10 @@ function emailItemFields(it) {
     name,
     description,
     category,
-    quantity: qty,
+    quantity: qtySafe,
     unitPrice,
     subtotal,
+    discount: discountSafe,
     notes,
     images,
   };
@@ -172,7 +211,11 @@ function formalQuoteBodyHtml(quote, showPrices) {
   );
 
   const items = Array.isArray(quote.items) ? quote.items : [];
-  const subtotal = items.reduce((s, it) => s + (Number(it.subtotal) || 0), 0);
+  const subtotal = items.reduce((s, it) => {
+    const f = emailItemFields(it);
+    const st = Number(f.subtotal);
+    return s + (Number.isFinite(st) ? st : 0);
+  }, 0);
   const tax = Number(quote.tax || 0);
   const total = subtotal + tax;
   const ivaPct = subtotal > 0 && tax > 0 ? (tax / subtotal) * 100 : 16;
@@ -181,10 +224,11 @@ function formalQuoteBodyHtml(quote, showPrices) {
   const td = 'padding:10px 8px;border:1px solid #cfd8dc;font-size:13px;vertical-align:top;';
 
   const priceHead = showPrices
-    ? `<th style="${th}text-align:right;">PRECIO</th><th style="${th}text-align:right;">SUBTOTAL</th>`
+    ? `<th width="14%" style="${th}text-align:right;">PRECIO</th><th width="14%" style="${th}text-align:right;">SUBTOTAL</th>`
     : '';
 
-  const tdText = `${td}color:#1a1a1a;font-size:13px;`;
+  const tdCell =
+    'padding:10px 8px;border:1px solid #cfd8dc;font-size:13px;vertical-align:top;color:#1a1a1a;line-height:1.35;';
 
   const rows = items
     .map((it) => {
@@ -195,22 +239,24 @@ function formalQuoteBodyHtml(quote, showPrices) {
         ? `<br/><span style="color:#546e7a;font-size:12px;">${escapeHtml(f.description)}</span>`
         : '';
       const lineNotes = f.notes
-        ? `<br/><span style="color:#37474f;font-size:12px;">${escapeHtml(f.notes)}</span>`
+        ? `<br/><span style="color:#37474f;font-size:12px;">${escapeHtml(stringifyEmailText(f.notes, 2000))}</span>`
         : '';
       const qty = formatQty(f.quantity);
       const unit = itemUnidadFromCategory(f.category);
       const imgSrc = firstProductImageUrlFromFields(f);
       const imgBlock = imgSrc
-        ? `<div style="margin-top:6px;line-height:0;"><img src="${escapeHtml(imgSrc)}" width="48" height="48" alt="" style="display:block;max-width:48px;max-height:48px;border:1px solid #e0e0e0;"/></div>`
+        ? `<br/><img src="${escapeAttrUrl(imgSrc)}" width="48" height="48" alt="" border="0" style="display:block;margin-top:6px;max-width:48px;max-height:48px;border:1px solid #e0e0e0;"/>`
         : '';
+      const priceStr = formatMoney(f.unitPrice);
+      const subStr = formatMoney(f.subtotal);
       const priceCells = showPrices
-        ? `<td style="${tdText}text-align:right;">${formatMoney(f.unitPrice)}</td><td style="${tdText}text-align:right;font-weight:600;">${formatMoney(f.subtotal)}</td>`
+        ? `<td align="right" valign="top" width="14%" style="${tdCell}">${priceStr}</td><td align="right" valign="top" width="14%" style="${tdCell}font-weight:bold;">${subStr}</td>`
         : '';
       return `<tr>
-        <td style="${tdText}text-align:center;">${qty}</td>
-        <td style="${tdText}">${code}${imgBlock}</td>
-        <td style="${tdText}">${name}${desc}${lineNotes}</td>
-        <td style="${tdText}text-align:center;">${unit}</td>
+        <td align="center" valign="top" width="9%" style="${tdCell}">${qty}</td>
+        <td valign="top" width="13%" style="${tdCell}">${code}${imgBlock}</td>
+        <td valign="top" width="32%" style="${tdCell}">${name}${desc}${lineNotes}</td>
+        <td align="center" valign="top" width="12%" style="${tdCell}">${unit}</td>
         ${priceCells}
       </tr>`;
     })
@@ -264,13 +310,13 @@ function formalQuoteBodyHtml(quote, showPrices) {
       ${phone ? `<div style="font-size:13px;">Tel. ${phone}</div>` : ''}
       ${addr ? `<div style="font-size:13px;margin-top:6px;">Domicilio: ${addr}</div>` : ''}
     </div>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+    <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin-bottom:8px;table-layout:fixed;">
       <thead>
         <tr>
-          <th style="${th}text-align:center;">CANT.</th>
-          <th style="${th}">CÓDIGO</th>
-          <th style="${th}">CONCEPTO</th>
-          <th style="${th}text-align:center;">UNIDAD</th>
+          <th width="9%" style="${th}text-align:center;">CANT.</th>
+          <th width="13%" style="${th}">CÓDIGO</th>
+          <th width="32%" style="${th}">CONCEPTO</th>
+          <th width="12%" style="${th}text-align:center;">UNIDAD</th>
           ${priceHead}
         </tr>
       </thead>
