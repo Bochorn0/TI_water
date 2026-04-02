@@ -3,6 +3,8 @@
 
 import emailHelper from '../utils/email.helper.js';
 import TIWaterQuoteModel from '../models/postgres/tiwater-quote.model.js';
+import { quoteLineFields, stringifyEmailText } from '../utils/quote-line-fields.js';
+import { generateQuotePdfBuffer, quotePdfFilename } from './tiwater-quote-pdf.service.js';
 
 const BRAND = 'TI WATER';
 const QUOTE_REPLY_TO = String(process.env.TIWATER_EMAIL_REPLY_TO || '').trim();
@@ -38,17 +40,6 @@ function escapeAttrUrl(url) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
     .replace(/</g, '%3C');
-}
-
-function stringifyEmailText(raw, maxLen = 4000) {
-  if (raw == null || raw === '') return '';
-  if (typeof raw === 'string') return raw.trim().slice(0, maxLen);
-  if (typeof raw === 'number' || typeof raw === 'boolean') return String(raw).slice(0, maxLen);
-  try {
-    return JSON.stringify(raw).slice(0, maxLen);
-  } catch {
-    return '';
-  }
 }
 
 function isValidEmail(email) {
@@ -105,75 +96,6 @@ function absoluteProductImageUrl(url) {
   return `${base}${path}`;
 }
 
-function parseImagesField(raw) {
-  if (raw == null) return [];
-  if (Array.isArray(raw)) return raw.filter(Boolean);
-  if (typeof raw === 'string') {
-    const t = raw.trim();
-    if (!t) return [];
-    try {
-      const parsed = JSON.parse(t);
-      return Array.isArray(parsed) ? parsed.filter(Boolean) : [t];
-    } catch {
-      return [t];
-    }
-  }
-  return [String(raw)];
-}
-
-/** Normalize item shape for email (camelCase API, snake_case, or missing nested product). */
-function emailItemFields(it) {
-  const prod = it.product && typeof it.product === 'object' && !Array.isArray(it.product) ? it.product : {};
-  const codeRaw = prod.code ?? it.code ?? it.manualCode ?? it.manual_code ?? '';
-  const nameRaw = prod.name ?? it.name ?? it.manualName ?? it.manual_name ?? '';
-  const descRaw = prod.description ?? it.description ?? '';
-  const catRaw = prod.category ?? it.category ?? it.manualCategory ?? it.manual_category ?? '';
-
-  const qtyRaw = it.quantity ?? it.qty ?? 0;
-  const qty = Number(qtyRaw);
-  const qtySafe = Number.isFinite(qty) ? qty : 0;
-
-  let unitPrice = Number(it.unitPrice ?? it.unit_price);
-  if (!Number.isFinite(unitPrice)) unitPrice = NaN;
-
-  let subtotal = Number(it.subtotal ?? it.line_subtotal);
-  if (!Number.isFinite(subtotal)) subtotal = NaN;
-
-  const discount = Number(it.discount ?? it.discount_amount ?? 0);
-  const discountSafe = Number.isFinite(discount) ? discount : 0;
-
-  if (!Number.isFinite(subtotal) && Number.isFinite(unitPrice) && qtySafe >= 0) {
-    subtotal = qtySafe * unitPrice - discountSafe;
-  }
-  if (!Number.isFinite(unitPrice) && Number.isFinite(subtotal) && qtySafe > 0) {
-    unitPrice = (subtotal + discountSafe) / qtySafe;
-  }
-
-  const notes = it.notes;
-
-  const pid = it.productId ?? it.product_id;
-  const code = stringifyEmailText(codeRaw, 120).trim() || '—';
-  let name = stringifyEmailText(nameRaw, 500).trim();
-  if (!name) name = pid != null && String(pid).length ? `Producto #${pid}` : 'Partida';
-  const description = stringifyEmailText(descRaw, 2000);
-  const category = stringifyEmailText(catRaw, 200);
-
-  const images = parseImagesField(prod.images ?? it.images);
-
-  return {
-    code,
-    name,
-    description,
-    category,
-    quantity: qtySafe,
-    unitPrice,
-    subtotal,
-    discount: discountSafe,
-    notes,
-    images,
-  };
-}
-
 function firstProductImageUrlFromFields(fields) {
   if (!fields.images.length) return '';
   return absoluteProductImageUrl(fields.images[0]);
@@ -212,7 +134,7 @@ function formalQuoteBodyHtml(quote, showPrices) {
 
   const items = Array.isArray(quote.items) ? quote.items : [];
   const subtotal = items.reduce((s, it) => {
-    const f = emailItemFields(it);
+    const f = quoteLineFields(it);
     const st = Number(f.subtotal);
     return s + (Number.isFinite(st) ? st : 0);
   }, 0);
@@ -232,7 +154,7 @@ function formalQuoteBodyHtml(quote, showPrices) {
 
   const rows = items
     .map((it) => {
-      const f = emailItemFields(it);
+      const f = quoteLineFields(it);
       const code = escapeHtml(f.code);
       const name = escapeHtml(f.name);
       const desc = f.description
@@ -334,6 +256,25 @@ function formalQuoteBodyHtml(quote, showPrices) {
   </div>`;
 }
 
+/** Cuerpo corto del correo “enviada” cuando se adjunta PDF (evita recorte en Gmail). */
+function shortQuoteResponseBodyHtml(quote) {
+  const num = escapeHtml(quote.quoteNumber || '—');
+  const n = quote.items?.length ?? 0;
+  const subtotal = (quote.items || []).reduce((s, it) => {
+    const f = quoteLineFields(it);
+    const st = Number(f.subtotal);
+    return s + (Number.isFinite(st) ? st : 0);
+  }, 0);
+  const tax = Number(quote.tax || 0);
+  const total = Number.isFinite(Number(quote.total)) ? Number(quote.total) : subtotal + tax;
+  return `
+    <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hola ${escapeHtml(quote.clientName || 'cliente')},</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Su cotización <strong>${num}</strong> está <strong>enviada</strong>. El detalle completo con partidas y precios va <strong>adjunto en PDF</strong>. Abra el archivo adjunto para ver la cotización sin recortes.</p>
+    <p style="font-size:14px;color:#333;margin:0 0 12px;">Resumen: <strong>${n}</strong> partida(s) · Total <strong>${formatMoney(total)}</strong> ${MONEDA}.</p>
+    <p style="margin-top:16px;font-size:14px;color:#2e7d32;"><strong>Estado:</strong> Cotización enviada / respondida por nuestro equipo.</p>
+  `;
+}
+
 function wrapEmail(innerHtml) {
   return `<!DOCTYPE html>
 <html lang="es">
@@ -354,16 +295,21 @@ function plainTextLines(quote, showPrices) {
   ];
   const items = quote.items || [];
   items.forEach((it, i) => {
-    const f = emailItemFields(it);
+    const f = quoteLineFields(it);
     lines.push(`${i + 1}. ${f.code} — ${f.name} — Cant. ${f.quantity}`);
     if (showPrices) {
       lines.push(`   Precio ${formatMoney(f.unitPrice)}  Subtotal ${formatMoney(f.subtotal)}`);
     }
   });
   if (showPrices) {
-    const sub = items.reduce((s, it) => s + (Number(it.subtotal) || 0), 0);
+    const sub = items.reduce((s, it) => {
+      const f = quoteLineFields(it);
+      const st = Number(f.subtotal);
+      return s + (Number.isFinite(st) ? st : 0);
+    }, 0);
     const tax = Number(quote.tax || 0);
-    lines.push(`Subtotal: ${formatMoney(sub)}`, `IVA: ${formatMoney(tax)}`, `TOTAL: ${formatMoney(sub + tax)}`);
+    const total = Number.isFinite(Number(quote.total)) ? Number(quote.total) : sub + tax;
+    lines.push(`Subtotal: ${formatMoney(sub)}`, `IVA: ${formatMoney(tax)}`, `TOTAL: ${formatMoney(total)}`);
   }
   if (quote.notes) lines.push('', `Comentarios: ${quote.notes}`);
   return lines.join('\n');
@@ -415,24 +361,40 @@ export async function sendQuoteResponseCustomerEmail(quote) {
   }
 
   const subject = `Cotización ${q.quoteNumber || ''} — Propuesta con precios — ${BRAND}`;
-  const inner = `
+
+  let attachments = [];
+  let inner;
+  let textIntro =
+    'Cotización con precios adjunta en PDF. Abra el archivo adjunto para ver el detalle completo (tabla, totales y comentarios).';
+
+  try {
+    const pdfBuffer = await generateQuotePdfBuffer(q, { showPrices: true });
+    attachments = [
+      {
+        filename: quotePdfFilename(q),
+        content: pdfBuffer,
+        contentType: 'application/pdf',
+      },
+    ];
+    inner = shortQuoteResponseBodyHtml(q);
+  } catch (err) {
+    console.error('[TIWaterQuoteEmail] PDF generation failed, sending full HTML in body:', err?.message || err);
+    textIntro = 'Detalle de su cotización con precios (sin adjunto PDF por error al generar el archivo):';
+    inner = `
     <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hola ${escapeHtml(q.clientName || 'cliente')},</p>
     <p style="font-size:15px;line-height:1.6;margin:0 0 24px;">Adjuntamos el detalle de su cotización con precios e importes. Estado: <strong>Enviada</strong>.</p>
     ${formalQuoteBodyHtml(q, true)}
     <p style="margin-top:20px;font-size:14px;color:#2e7d32;"><strong>Estado:</strong> Cotización enviada / respondida por nuestro equipo.</p>
   `;
+  }
 
   const result = await emailHelper.sendEmail({
     to,
     subject,
     html: wrapEmail(inner),
+    attachments,
     ...(isValidEmail(QUOTE_REPLY_TO) ? { replyTo: QUOTE_REPLY_TO } : {}),
-    text: [
-      `Hola ${q.clientName || 'cliente'},`,
-      '',
-      'Detalle de su cotización con precios:',
-      plainTextLines(q, true),
-    ].join('\n'),
+    text: [`Hola ${q.clientName || 'cliente'},`, '', textIntro, '', plainTextLines(q, true)].join('\n'),
   });
 
   if (!result.success) {

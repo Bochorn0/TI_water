@@ -5,6 +5,7 @@
 
 import nodemailer from 'nodemailer';
 import axios from 'axios';
+import FormData from 'form-data';
 
 /**
  * Email Helper Class
@@ -311,6 +312,7 @@ class EmailHelper {
       from = this.sendGridFromEmail,
       fromName = this.sendGridFromName,
       replyTo,
+      attachments = [],
     } = options;
 
     if (!this.sendGridApiKey) {
@@ -346,6 +348,18 @@ class EmailHelper {
         emailData.content.push({
           type: 'text/plain',
           value: text,
+        });
+      }
+
+      if (attachments.length > 0) {
+        emailData.attachments = attachments.map((att) => {
+          const buf = Buffer.isBuffer(att.content) ? att.content : Buffer.from(att.content || []);
+          return {
+            content: buf.toString('base64'),
+            filename: att.filename || 'attachment',
+            type: att.contentType || 'application/octet-stream',
+            disposition: 'attachment',
+          };
         });
       }
 
@@ -396,6 +410,7 @@ class EmailHelper {
       from = this.mailgunFromEmail,
       fromName = this.mailgunFromName,
       replyTo,
+      attachments = [],
     } = options;
 
     if (!this.mailgunApiKey || !this.mailgunDomain) {
@@ -409,28 +424,63 @@ class EmailHelper {
     const MG_EU_BASE = 'https://api.eu.mailgun.net/v3';
 
     const domainPath = encodeURIComponent(this.mailgunDomain);
-    const formData = new URLSearchParams();
-    formData.append('from', `${fromName} <${from}>`);
-    if (Array.isArray(to)) {
-      to.forEach((email) => formData.append('to', email));
-    } else {
-      formData.append('to', to);
-    }
-    formData.append('subject', subject);
-    if (html) formData.append('html', html);
-    if (text) formData.append('text', text);
-    if (replyTo) {
-      formData.append('h:Reply-To', typeof replyTo === 'string' ? replyTo.trim() : String(replyTo));
-    }
+
+    const buildMailgunBody = () => {
+      if (attachments.length > 0) {
+        const form = new FormData();
+        form.append('from', `${fromName} <${from}>`);
+        if (Array.isArray(to)) {
+          to.forEach((email) => form.append('to', email));
+        } else {
+          form.append('to', to);
+        }
+        form.append('subject', subject);
+        if (html) form.append('html', html);
+        if (text) form.append('text', text);
+        if (replyTo) {
+          form.append('h:Reply-To', typeof replyTo === 'string' ? replyTo.trim() : String(replyTo));
+        }
+        for (const att of attachments) {
+          const buf = Buffer.isBuffer(att.content) ? att.content : Buffer.from(att.content || []);
+          form.append('attachment', buf, {
+            filename: att.filename || 'attachment',
+            contentType: att.contentType || 'application/octet-stream',
+          });
+        }
+        return { body: form, headers: form.getHeaders() };
+      }
+      const formData = new URLSearchParams();
+      formData.append('from', `${fromName} <${from}>`);
+      if (Array.isArray(to)) {
+        to.forEach((email) => formData.append('to', email));
+      } else {
+        formData.append('to', to);
+      }
+      formData.append('subject', subject);
+      if (html) formData.append('html', html);
+      if (text) formData.append('text', text);
+      if (replyTo) {
+        formData.append('h:Reply-To', typeof replyTo === 'string' ? replyTo.trim() : String(replyTo));
+      }
+      return {
+        body: formData.toString(),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      };
+    };
 
     const postMailgun = async (apiBase) => {
       const url = `${apiBase}/${domainPath}/messages`;
-      return axios.post(url, formData.toString(), {
+      const { body, headers } = buildMailgunBody();
+      return axios.post(url, body, {
         headers: {
           Authorization: `Basic ${Buffer.from(`api:${this.mailgunApiKey}`).toString('base64')}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
+          ...headers,
         },
-        timeout: 10000,
+        timeout: 60000,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
       });
     };
 
@@ -518,6 +568,7 @@ class EmailHelper {
       from = this.resendFromEmail,
       fromName = this.resendFromName,
       replyTo,
+      attachments = [],
     } = options;
 
     if (!this.resendApiKey) {
@@ -537,6 +588,16 @@ class EmailHelper {
       };
       if (replyTo) {
         emailData.reply_to = typeof replyTo === 'string' ? replyTo.trim() : String(replyTo);
+      }
+
+      if (attachments.length > 0) {
+        emailData.attachments = attachments.map((att) => {
+          const buf = Buffer.isBuffer(att.content) ? att.content : Buffer.from(att.content || []);
+          return {
+            filename: att.filename || 'attachment',
+            content: buf.toString('base64'),
+          };
+        });
       }
 
       const response = await axios.post(
@@ -611,11 +672,11 @@ class EmailHelper {
 
     // Route to appropriate provider
     if (this.emailProvider === 'sendgrid') {
-      return this.sendEmailViaSendGrid({ to, subject, html, text, from, replyTo });
+      return this.sendEmailViaSendGrid({ to, subject, html, text, from, replyTo, attachments });
     } else if (this.emailProvider === 'mailgun') {
-      return this.sendEmailViaMailgun({ to, subject, html, text, from, replyTo });
+      return this.sendEmailViaMailgun({ to, subject, html, text, from, replyTo, attachments });
     } else if (this.emailProvider === 'resend') {
-      return this.sendEmailViaResend({ to, subject, html, text, from, replyTo });
+      return this.sendEmailViaResend({ to, subject, html, text, from, replyTo, attachments });
     }
 
     // Fallback to SMTP
