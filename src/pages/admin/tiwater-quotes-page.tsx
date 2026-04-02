@@ -8,8 +8,8 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
-  Paper,
+  TableCell,
+  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
@@ -18,6 +18,14 @@ import { quoteService } from 'src/services/quote.service';
 import type { Product } from 'src/types/product.types';
 import type { Quote, QuoteItem, QuoteStatus } from 'src/types/quote.types';
 import { AdminDataTable, type AdminColumnDef } from 'src/components/admin/AdminDataTable';
+import { CotizacionFormalDocument, formatMoney } from 'src/components/cotizacion/CotizacionFormalDocument';
+import { docTableCellSx } from 'src/components/cotizacion/cotizacion-formal-styles';
+import { COTIZACION_UNIDAD_DEFAULT } from 'src/constants/cotizacion-document';
+
+function itemUnidad(item: QuoteItem) {
+  const c = item.product?.category?.trim();
+  return c && c.length > 0 ? c.toUpperCase() : COTIZACION_UNIDAD_DEFAULT;
+}
 
 export function TiwaterQuotesAdminPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -70,7 +78,11 @@ export function TiwaterQuotesAdminPage() {
     }
   };
 
-  const updateItem = (index: number, field: 'quantity' | 'unitPrice' | 'discount' | 'notes', value: number | string) => {
+  const updateItem = (
+    index: number,
+    field: 'quantity' | 'unitPrice' | 'discount' | 'notes',
+    value: number | string,
+  ) => {
     if (!editingQuote?.items) return;
     const items = [...editingQuote.items];
     const item = { ...items[index] };
@@ -80,7 +92,9 @@ export function TiwaterQuotesAdminPage() {
     if (field === 'discount') item.discount = Number(value);
     item.subtotal = item.quantity * item.unitPrice - (item.discount || 0);
     items[index] = item;
-    setEditingQuote({ ...editingQuote, items });
+    const subtotal = items.reduce((s, it) => s + it.subtotal, 0);
+    const tax = Number(editingQuote.tax || 0);
+    setEditingQuote({ ...editingQuote, items, subtotal, total: subtotal + tax });
   };
 
   const autofillPrice = (index: number) => {
@@ -88,6 +102,13 @@ export function TiwaterQuotesAdminPage() {
     const item = editingQuote.items[index];
     const catalogPrice = catalogPriceByProduct.get(item.productId) || 0;
     updateItem(index, 'unitPrice', catalogPrice);
+  };
+
+  const setTaxFromPercent = () => {
+    if (!editingQuote?.items) return;
+    const subtotal = editingQuote.items.reduce((s, it) => s + it.subtotal, 0);
+    const tax = Math.round(subtotal * 0.16 * 100) / 100;
+    setEditingQuote({ ...editingQuote, tax, subtotal, total: subtotal + tax });
   };
 
   const respondQuote = async () => {
@@ -210,93 +231,132 @@ export function TiwaterQuotesAdminPage() {
       />
 
       <Dialog open={Boolean(editingQuote)} onClose={() => setEditingQuote(null)} maxWidth="lg" fullWidth>
-        <DialogTitle>Responder cotización {editingQuote?.quoteNumber}</DialogTitle>
-        <DialogContent dividers>
-          {editingQuote?.items?.map((item, index) => (
-            <Paper key={item.id || index} sx={{ p: 2, mb: 2 }}>
-              <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} sm="auto">
-                  <Box
-                    sx={{
-                      width: 100,
-                      height: 100,
-                      flexShrink: 0,
-                      borderRadius: 1,
-                      bgcolor: 'grey.100',
-                      overflow: 'hidden',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {productImageForItem(item) ? (
+        <DialogTitle sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+          Cotización {editingQuote?.quoteNumber}
+        </DialogTitle>
+        <DialogContent dividers sx={{ bgcolor: '#f5f5f5' }}>
+          {editingQuote ? (
+            <CotizacionFormalDocument quote={editingQuote} showPrices taxAmount={Number(editingQuote.tax || 0)}>
+              {editingQuote.items?.map((item, index) => (
+                <TableRow key={item.id || index}>
+                  <TableCell align="center" sx={docTableCellSx}>
+                    <TextField
+                      type="number"
+                      size="small"
+                      inputProps={{ min: 0, step: 0.01, style: { textAlign: 'center' } }}
+                      value={item.quantity}
+                      onChange={(e) => updateItem(index, 'quantity', Number(e.target.value) || 0)}
+                      sx={{ width: 80 }}
+                    />
+                  </TableCell>
+                  <TableCell sx={docTableCellSx}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                       <Box
-                        component="img"
-                        src={productImageForItem(item)}
-                        alt=""
-                        sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                      />
-                    ) : (
-                      <Typography variant="caption" color="text.secondary" sx={{ px: 1, textAlign: 'center' }}>
+                        sx={{
+                          width: 48,
+                          height: 48,
+                          flexShrink: 0,
+                          borderRadius: 0.5,
+                          bgcolor: 'grey.100',
+                          overflow: 'hidden',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {productImageForItem(item) ? (
+                          <Box
+                            component="img"
+                            src={productImageForItem(item)}
+                            alt=""
+                            sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                          />
+                        ) : (
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', px: 0.5 }}>
+                            {item.product?.code || '—'}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
                         {item.product?.code || '—'}
                       </Typography>
-                    )}
-                  </Box>
-                </Grid>
-                <Grid item xs={12} md={3}>
-                  <Typography variant="subtitle2">{item.product?.name}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {item.product?.code}
-                  </Typography>
-                </Grid>
-                <Grid item xs={6} md={2}>
-                  <TextField
-                    label="Cant."
-                    type="number"
-                    size="small"
-                    value={item.quantity}
-                    onChange={(e) => updateItem(index, 'quantity', Number(e.target.value) || 1)}
-                  />
-                </Grid>
-                <Grid item xs={6} md={2}>
-                  <TextField
-                    label="Precio"
-                    type="number"
-                    size="small"
-                    value={item.unitPrice}
-                    onChange={(e) => updateItem(index, 'unitPrice', Number(e.target.value) || 0)}
-                  />
-                </Grid>
-                <Grid item xs={12} md={2}>
-                  <Button fullWidth variant="outlined" onClick={() => autofillPrice(index)}>
-                    Autollenar
-                  </Button>
-                </Grid>
-                <Grid item xs={12} md={2}>
-                  <Typography align="right">${item.subtotal.toLocaleString()}</Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    label="Notas del vendedor"
-                    size="small"
-                    fullWidth
-                    value={item.notes || ''}
-                    onChange={(e) => updateItem(index, 'notes', e.target.value)}
-                  />
-                </Grid>
-              </Grid>
-            </Paper>
-          ))}
-          <TextField
-            fullWidth
-            multiline
-            minRows={3}
-            label="Notas generales"
-            value={editingQuote?.notes || ''}
-            onChange={(e) => setEditingQuote((prev) => (prev ? { ...prev, notes: e.target.value } : prev))}
-          />
+                    </Box>
+                  </TableCell>
+                  <TableCell sx={docTableCellSx}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {item.product?.name}
+                    </Typography>
+                    {item.product?.description ? (
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {item.product.description}
+                      </Typography>
+                    ) : null}
+                    <TextField
+                      label="Notas línea"
+                      size="small"
+                      fullWidth
+                      sx={{ mt: 1 }}
+                      value={item.notes || ''}
+                      onChange={(e) => updateItem(index, 'notes', e.target.value)}
+                    />
+                  </TableCell>
+                  <TableCell align="center" sx={docTableCellSx}>
+                    <Typography variant="body2">{itemUnidad(item)}</Typography>
+                  </TableCell>
+                  <TableCell align="right" sx={docTableCellSx}>
+                    <TextField
+                      type="number"
+                      size="small"
+                      inputProps={{ min: 0, step: 0.01, style: { textAlign: 'right' } }}
+                      value={item.unitPrice}
+                      onChange={(e) => updateItem(index, 'unitPrice', Number(e.target.value) || 0)}
+                      sx={{ width: 100 }}
+                    />
+                    <Button size="small" onClick={() => autofillPrice(index)} sx={{ mt: 0.5, display: 'block' }}>
+                      Catálogo
+                    </Button>
+                  </TableCell>
+                  <TableCell align="right" sx={{ ...docTableCellSx, fontWeight: 600 }}>
+                    {formatMoney(item.subtotal)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </CotizacionFormalDocument>
+          ) : null}
+
+          {editingQuote ? (
+            <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'flex-end' }}>
+              <TextField
+                label="IVA ($)"
+                type="number"
+                size="small"
+                value={editingQuote.tax ?? 0}
+                onChange={(e) => {
+                  const tax = Number(e.target.value) || 0;
+                  const subtotal =
+                    editingQuote.items?.reduce((s, it) => s + it.subtotal, 0) ?? 0;
+                  setEditingQuote({ ...editingQuote, tax, subtotal, total: subtotal + tax });
+                }}
+                inputProps={{ min: 0, step: 0.01 }}
+                sx={{ width: 140 }}
+              />
+              <Button variant="outlined" size="small" onClick={setTaxFromPercent}>
+                IVA 16% del subtotal
+              </Button>
+              <TextField
+                label="Notas generales (comentarios en documento)"
+                size="small"
+                fullWidth
+                sx={{ flex: '1 1 100%' }}
+                multiline
+                minRows={2}
+                value={editingQuote.notes || ''}
+                onChange={(e) => setEditingQuote((prev) => (prev ? { ...prev, notes: e.target.value } : prev))}
+              />
+            </Box>
+          ) : null}
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setEditingQuote(null)}>Cerrar</Button>
           <Button variant="contained" onClick={respondQuote} disabled={saving}>
             {saving ? 'Guardando…' : 'Responder y marcar enviada'}

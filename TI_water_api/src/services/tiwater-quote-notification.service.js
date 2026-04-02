@@ -1,12 +1,25 @@
 // src/services/tiwater-quote-notification.service.js
-// Customer emails for TI Water quotes (Mailgun / SendGrid / Resend / SMTP via email.helper)
+// Customer emails — formal cotización layout (with / without prices)
 
 import emailHelper from '../utils/email.helper.js';
 
-const BRAND = 'TI Water';
-
-/** Optional Reply-To (From / domain vienen de MAILGUN_* en email.helper). */
+const BRAND = 'TI WATER';
 const QUOTE_REPLY_TO = String(process.env.TIWATER_EMAIL_REPLY_TO || '').trim();
+
+const ISSUER = {
+  tradeMark: 'TI WATER',
+  legalName:
+    process.env.TIWATER_QUOTE_LEGAL_NAME ||
+    'TI WATER — Soluciones en purificación de agua',
+  rfc: process.env.TIWATER_QUOTE_RFC || '',
+  footerLegal:
+    process.env.TIWATER_QUOTE_FOOTER_LEGAL ||
+    'Precios sujetos a cambio sin previo aviso. Vigencia de cotización según acuerdo comercial.',
+};
+
+const LUGAR = process.env.TIWATER_QUOTE_LUGAR || 'HERMOSILLO, SONORA';
+const MONEDA = 'MXN';
+const UNIDAD_DEFAULT = 'SERVICIO';
 
 function escapeHtml(str) {
   if (str == null || str === '') return '';
@@ -26,96 +39,187 @@ function isValidEmail(email) {
 function formatMoney(value) {
   const n = Number(value);
   if (Number.isNaN(n)) return '—';
-  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n);
+  return new Intl.NumberFormat('es-MX', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
 }
 
-function itemsTableHtml(items) {
-  if (!Array.isArray(items) || items.length === 0) {
-    return '<p><em>Sin productos en la cotización.</em></p>';
-  }
+function formatQty(value) {
+  const n = Number(value);
+  if (Number.isNaN(n)) return '—';
+  return new Intl.NumberFormat('es-MX', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(n);
+}
+
+function itemUnidad(it) {
+  const c = it.product?.category?.trim();
+  return c && c.length > 0 ? escapeHtml(c.toUpperCase()) : UNIDAD_DEFAULT;
+}
+
+function formalQuoteBodyHtml(quote, showPrices) {
+  const num = escapeHtml(quote.quoteNumber || '—');
+  const client = escapeHtml(quote.clientName || '');
+  const email = quote.clientEmail ? escapeHtml(quote.clientEmail) : '';
+  const phone = quote.clientPhone ? escapeHtml(quote.clientPhone) : '';
+  const addr = quote.clientAddress ? escapeHtml(quote.clientAddress) : '';
+  const notes = quote.notes ? escapeHtml(quote.notes) : '';
+  const created = quote.createdAt ? new Date(quote.createdAt) : new Date();
+  const fechaStr = escapeHtml(
+    created.toLocaleString('es-MX', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }),
+  );
+
+  const items = Array.isArray(quote.items) ? quote.items : [];
+  const subtotal = items.reduce((s, it) => s + (Number(it.subtotal) || 0), 0);
+  const tax = Number(quote.tax || 0);
+  const total = subtotal + tax;
+  const ivaPct = subtotal > 0 && tax > 0 ? (tax / subtotal) * 100 : 16;
+
+  const th = 'padding:10px 8px;border:1px solid #b0bec5;background:#eceff1;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;';
+  const td = 'padding:10px 8px;border:1px solid #cfd8dc;font-size:13px;vertical-align:top;';
+
+  const priceHead = showPrices
+    ? `<th style="${th}text-align:right;">PRECIO</th><th style="${th}text-align:right;">SUBTOTAL</th>`
+    : '';
+
   const rows = items
     .map((it) => {
+      const code = escapeHtml(it.product?.code || '—');
       const name = escapeHtml(it.product?.name || `Producto #${it.productId || ''}`);
-      const code = it.product?.code ? escapeHtml(String(it.product.code)) : '—';
-      const qty = escapeHtml(String(it.quantity ?? ''));
-      const unit = formatMoney(it.unitPrice);
-      const disc = formatMoney(it.discount || 0);
-      const sub = formatMoney(it.subtotal);
-      const lineNotes = it.notes ? escapeHtml(it.notes) : '—';
+      const desc = it.product?.description ? `<br/><span style="color:#546e7a;font-size:12px;">${escapeHtml(it.product.description)}</span>` : '';
+      const lineNotes = it.notes ? `<br/><span style="color:#37474f;font-size:12px;">${escapeHtml(it.notes)}</span>` : '';
+      const qty = formatQty(it.quantity);
+      const unit = itemUnidad(it);
+      const priceCells = showPrices
+        ? `<td style="${td}text-align:right;">${formatMoney(it.unitPrice)}</td><td style="${td}text-align:right;font-weight:600;">${formatMoney(it.subtotal)}</td>`
+        : '';
       return `<tr>
-        <td style="padding:8px;border:1px solid #e0e0e0;">${name}<br/><span style="color:#666;font-size:12px;">${code}</span></td>
-        <td style="padding:8px;border:1px solid #e0e0e0;text-align:right;">${qty}</td>
-        <td style="padding:8px;border:1px solid #e0e0e0;text-align:right;">${unit}</td>
-        <td style="padding:8px;border:1px solid #e0e0e0;text-align:right;">${disc}</td>
-        <td style="padding:8px;border:1px solid #e0e0e0;text-align:right;">${sub}</td>
-        <td style="padding:8px;border:1px solid #e0e0e0;font-size:13px;">${lineNotes}</td>
+        <td style="${td}text-align:center;">${qty}</td>
+        <td style="${td}">${code}</td>
+        <td style="${td}">${name}${desc}${lineNotes}</td>
+        <td style="${td}text-align:center;">${unit}</td>
+        ${priceCells}
       </tr>`;
     })
     .join('');
+
+  const colSpan = showPrices ? 6 : 4;
+  const tableRows =
+    rows || `<tr><td colspan="${colSpan}" style="${td}"><em>Sin partidas.</em></td></tr>`;
+
+  const totalsBlock = showPrices
+    ? `
+    <table style="width:100%;max-width:280px;margin-left:auto;margin-top:16px;border-collapse:collapse;">
+      <tr><td style="padding:6px 0;border-bottom:1px solid #cfd8dc;">Subtotal $</td><td style="padding:6px 0;text-align:right;font-weight:600;border-bottom:1px solid #cfd8dc;">${formatMoney(subtotal)}</td></tr>
+      <tr><td style="padding:6px 0;border-bottom:1px solid #cfd8dc;">IVA Tras. (${ivaPct.toFixed(2)})% $</td><td style="padding:6px 0;text-align:right;font-weight:600;border-bottom:1px solid #cfd8dc;">${formatMoney(tax)}</td></tr>
+      <tr><td style="padding:10px 0 0;font-weight:800;font-size:16px;">TOTAL $</td><td style="padding:10px 0 0;text-align:right;font-weight:800;font-size:16px;border-top:2px solid #1565c0;">${formatMoney(total)}</td></tr>
+    </table>`
+    : '';
+
+  const rfcLine = ISSUER.rfc ? `<div style="font-size:12px;margin-top:6px;">RFC: ${escapeHtml(ISSUER.rfc)}</div>` : '';
+
+  const comentarios = [notes, ISSUER.footerLegal].filter(Boolean).join('<br/><br/>');
+
   return `
-    <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px;">
+  <div style="max-width:720px;margin:0 auto;background:#fff;border:1px solid #cfd8dc;padding:24px;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;">
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+      <tr>
+        <td style="vertical-align:top;width:60%;">
+          <div style="font-size:28px;line-height:1;color:#1565c0;">💧 <span style="font-weight:800;letter-spacing:0.02em;">${escapeHtml(ISSUER.tradeMark)}</span></div>
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;margin-top:8px;">${escapeHtml(ISSUER.legalName)}</div>
+          ${rfcLine}
+        </td>
+        <td style="vertical-align:top;width:40%;text-align:right;">
+          <div style="display:inline-block;border:2px solid #1565c0;padding:16px 20px;background:#fafafa;text-align:left;min-width:200px;">
+            <div style="font-size:11px;color:#666;">Folio</div>
+            <div style="font-size:18px;font-weight:800;margin-bottom:10px;">${num}</div>
+            <div style="font-size:11px;color:#666;">Fecha</div>
+            <div style="font-size:13px;margin-bottom:8px;">${fechaStr}</div>
+            <div style="font-size:11px;color:#666;">Lugar</div>
+            <div style="font-size:13px;margin-bottom:8px;">${escapeHtml(LUGAR)}</div>
+            <div style="font-size:11px;color:#666;">Moneda</div>
+            <div style="font-size:13px;font-weight:600;">${MONEDA}</div>
+          </div>
+        </td>
+      </tr>
+    </table>
+    <div style="text-align:center;font-size:18px;font-weight:700;letter-spacing:0.08em;margin:16px 0;">COTIZACIÓN</div>
+    <div style="border-top:1px solid #cfd8dc;padding-top:16px;margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;margin-bottom:6px;">Cliente</div>
+      <div style="font-size:15px;font-weight:700;">${client}</div>
+      ${email ? `<div style="font-size:13px;color:#546e7a;">${email}</div>` : ''}
+      ${phone ? `<div style="font-size:13px;">Tel. ${phone}</div>` : ''}
+      ${addr ? `<div style="font-size:13px;margin-top:6px;">Domicilio: ${addr}</div>` : ''}
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
       <thead>
-        <tr style="background:#f5f5f5;">
-          <th style="padding:8px;border:1px solid #e0e0e0;text-align:left;">Producto</th>
-          <th style="padding:8px;border:1px solid #e0e0e0;text-align:right;">Cant.</th>
-          <th style="padding:8px;border:1px solid #e0e0e0;text-align:right;">Precio unit.</th>
-          <th style="padding:8px;border:1px solid #e0e0e0;text-align:right;">Desc.</th>
-          <th style="padding:8px;border:1px solid #e0e0e0;text-align:right;">Subtotal</th>
-          <th style="padding:8px;border:1px solid #e0e0e0;text-align:left;">Notas línea</th>
+        <tr>
+          <th style="${th}text-align:center;">CANT.</th>
+          <th style="${th}">CÓDIGO</th>
+          <th style="${th}">CONCEPTO</th>
+          <th style="${th}text-align:center;">UNIDAD</th>
+          ${priceHead}
         </tr>
       </thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-}
-
-function quoteSummaryBlock(quote) {
-  const num = escapeHtml(quote.quoteNumber || '');
-  const name = escapeHtml(quote.clientName || '');
-  const phone = escapeHtml(quote.clientPhone || '—');
-  const addr = escapeHtml(quote.clientAddress || '—');
-  const status = escapeHtml(quote.status || '—');
-  const notes = quote.notes ? escapeHtml(quote.notes) : null;
-  const validUntil = quote.validUntil ? escapeHtml(String(quote.validUntil)) : null;
-
-  return `
-    <table style="width:100%;max-width:560px;margin:12px 0;font-size:14px;line-height:1.5;">
-      <tr><td><strong>Folio:</strong></td><td>${num}</td></tr>
-      <tr><td><strong>Cliente:</strong></td><td>${name}</td></tr>
-      <tr><td><strong>Teléfono:</strong></td><td>${phone}</td></tr>
-      <tr><td><strong>Dirección:</strong></td><td>${addr}</td></tr>
-      <tr><td><strong>Estado:</strong></td><td>${status}</td></tr>
-      ${validUntil ? `<tr><td><strong>Vigencia:</strong></td><td>${validUntil}</td></tr>` : ''}
+      <tbody>${tableRows}</tbody>
     </table>
-    ${notes ? `<p style="margin-top:12px;"><strong>Notas generales:</strong><br/>${notes}</p>` : ''}
-    ${itemsTableHtml(quote.items)}
-    <p style="margin-top:12px;font-size:15px;">
-      <strong>Subtotal:</strong> ${formatMoney(quote.subtotal)}<br/>
-      <strong>Impuestos:</strong> ${formatMoney(quote.tax)}<br/>
-      <strong>Total:</strong> ${formatMoney(quote.total)}
-    </p>`;
+    ${totalsBlock}
+    ${
+      comentarios
+        ? `<div style="border-top:1px solid #cfd8dc;padding-top:16px;margin-top:20px;">
+        <div style="font-size:12px;font-weight:800;text-transform:uppercase;margin-bottom:8px;">Comentarios</div>
+        <div style="font-size:13px;color:#546e7a;line-height:1.5;">${comentarios}</div>
+      </div>`
+        : ''
+    }
+  </div>`;
 }
 
 function wrapEmail(innerHtml) {
   return `<!DOCTYPE html>
 <html lang="es">
-<head><meta charset="utf-8"/></head>
-<body style="font-family:Arial,sans-serif;line-height:1.6;color:#333;max-width:640px;margin:0 auto;padding:20px;">
-  <div style="background:#f9f9f9;padding:24px;border-radius:8px;border:1px solid #e0e0e0;">
-    <h1 style="color:#1565c0;margin-top:0;">${BRAND}</h1>
-    <div style="background:#fff;padding:20px;border-radius:6px;">
-      ${innerHtml}
-    </div>
-    <p style="text-align:center;color:#666;font-size:12px;margin-top:20px;">
-      Correo automático, por favor no respondas directamente a este mensaje.
-    </p>
-  </div>
+<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width"/></head>
+<body style="margin:0;padding:20px;background:#f0f0f0;">
+  ${innerHtml}
+  <p style="text-align:center;color:#888;font-size:11px;margin-top:24px;max-width:720px;margin-left:auto;margin-right:auto;">
+    Correo automático ${BRAND}. Para responder, utilice el mismo correo con el que realizó su solicitud o el enlace de contacto en nuestro sitio.
+  </p>
 </body>
 </html>`;
 }
 
-/**
- * After a public (or authenticated) quote is created — pending review.
- */
+function plainTextLines(quote, showPrices) {
+  const lines = [
+    `Folio: ${quote.quoteNumber || '—'}`,
+    `Cliente: ${quote.clientName || ''}`,
+  ];
+  const items = quote.items || [];
+  items.forEach((it, i) => {
+    lines.push(
+      `${i + 1}. ${it.product?.code || ''} — ${it.product?.name || ''} — Cant. ${it.quantity}`,
+    );
+    if (showPrices) {
+      lines.push(`   Precio ${formatMoney(it.unitPrice)}  Subtotal ${formatMoney(it.subtotal)}`);
+    }
+  });
+  if (showPrices) {
+    const sub = items.reduce((s, it) => s + (Number(it.subtotal) || 0), 0);
+    const tax = Number(quote.tax || 0);
+    lines.push(`Subtotal: ${formatMoney(sub)}`, `IVA: ${formatMoney(tax)}`, `TOTAL: ${formatMoney(sub + tax)}`);
+  }
+  if (quote.notes) lines.push('', `Comentarios: ${quote.notes}`);
+  return lines.join('\n');
+}
+
 export async function sendQuoteReceivedCustomerEmail(quote) {
   const to = quote.clientEmail?.trim();
   if (!isValidEmail(to)) {
@@ -123,12 +227,12 @@ export async function sendQuoteReceivedCustomerEmail(quote) {
     return { skipped: true, reason: 'no_email' };
   }
 
-  const subject = `Recibimos tu cotización ${quote.quoteNumber || ''} — ${BRAND}`;
+  const subject = `Cotización recibida ${quote.quoteNumber || ''} — ${BRAND}`;
   const inner = `
-    <p>Hola ${escapeHtml(quote.clientName || 'cliente')},</p>
-    <p>Tu cotización está en proceso. Un vendedor evaluará tu solicitud y recibirás una respuesta en poco tiempo. Te agradecemos tu paciencia.</p>
-    <h2 style="margin-top:24px;font-size:16px;">Detalle de tu solicitud</h2>
-    ${quoteSummaryBlock(quote)}
+    <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hola ${escapeHtml(quote.clientName || 'cliente')},</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 24px;">Tu cotización está en proceso. Un vendedor evaluará tu solicitud y recibirás una respuesta en poco tiempo. Te agradecemos tu paciencia.</p>
+    <p style="font-size:13px;font-weight:700;text-transform:uppercase;margin:0 0 12px;color:#1565c0;">Resumen de tu solicitud <span style="font-weight:400;color:#666;">(sin precios)</span></p>
+    ${formalQuoteBodyHtml(quote, false)}
   `;
 
   const result = await emailHelper.sendEmail({
@@ -141,8 +245,8 @@ export async function sendQuoteReceivedCustomerEmail(quote) {
       '',
       'Tu cotización está en proceso. Un vendedor evaluará tu solicitud y recibirás una respuesta en poco tiempo. Te agradecemos tu paciencia.',
       '',
-      `Folio: ${quote.quoteNumber}`,
-      `Total indicativo: ${formatMoney(quote.total)}`,
+      'Resumen (sin precios):',
+      plainTextLines(quote, false),
     ].join('\n'),
   });
 
@@ -152,9 +256,6 @@ export async function sendQuoteReceivedCustomerEmail(quote) {
   return result;
 }
 
-/**
- * When staff marks the quote as responded (status enviada) — pricing and notes.
- */
 export async function sendQuoteResponseCustomerEmail(quote) {
   const to = quote.clientEmail?.trim();
   if (!isValidEmail(to)) {
@@ -162,13 +263,12 @@ export async function sendQuoteResponseCustomerEmail(quote) {
     return { skipped: true, reason: 'no_email' };
   }
 
-  const subject = `Respuesta a tu cotización ${quote.quoteNumber || ''} — ${BRAND}`;
+  const subject = `Cotización ${quote.quoteNumber || ''} — Propuesta con precios — ${BRAND}`;
   const inner = `
-    <p>Hola ${escapeHtml(quote.clientName || 'cliente')},</p>
-    <p>Ya puedes revisar la propuesta económica y los detalles de tu cotización a continuación.</p>
-    <h2 style="margin-top:24px;font-size:16px;">Cotización respondida</h2>
-    ${quoteSummaryBlock(quote)}
-    <p style="margin-top:16px;color:#2e7d32;"><strong>Estado:</strong> Enviada / respondida por nuestro equipo.</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hola ${escapeHtml(quote.clientName || 'cliente')},</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 24px;">Adjuntamos el detalle de su cotización con precios e importes. Estado: <strong>Enviada</strong>.</p>
+    ${formalQuoteBodyHtml(quote, true)}
+    <p style="margin-top:20px;font-size:14px;color:#2e7d32;"><strong>Estado:</strong> Cotización enviada / respondida por nuestro equipo.</p>
   `;
 
   const result = await emailHelper.sendEmail({
@@ -179,16 +279,9 @@ export async function sendQuoteResponseCustomerEmail(quote) {
     text: [
       `Hola ${quote.clientName || 'cliente'},`,
       '',
-      'Ya puedes revisar la propuesta económica y los detalles de tu cotización.',
-      '',
-      `Folio: ${quote.quoteNumber}`,
-      `Subtotal: ${formatMoney(quote.subtotal)}`,
-      `Impuestos: ${formatMoney(quote.tax)}`,
-      `Total: ${formatMoney(quote.total)}`,
-      quote.notes ? `Notas: ${quote.notes}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n'),
+      'Detalle de su cotización con precios:',
+      plainTextLines(quote, true),
+    ].join('\n'),
   });
 
   if (!result.success) {
