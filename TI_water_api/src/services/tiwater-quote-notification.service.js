@@ -2,6 +2,7 @@
 // Customer emails — formal cotización layout (with / without prices)
 
 import emailHelper from '../utils/email.helper.js';
+import TIWaterQuoteModel from '../models/postgres/tiwater-quote.model.js';
 
 const BRAND = 'TI WATER';
 const QUOTE_REPLY_TO = String(process.env.TIWATER_EMAIL_REPLY_TO || '').trim();
@@ -54,9 +55,9 @@ function formatQty(value) {
   }).format(n);
 }
 
-function itemUnidad(it) {
-  const c = it.product?.category?.trim();
-  return c && c.length > 0 ? escapeHtml(c.toUpperCase()) : UNIDAD_DEFAULT;
+function itemUnidadFromCategory(category) {
+  const c = typeof category === 'string' ? category.trim() : '';
+  return c.length > 0 ? escapeHtml(c.toUpperCase()) : UNIDAD_DEFAULT;
 }
 
 /** Many clients store relative paths; email clients need absolute URLs for <img>. */
@@ -65,6 +66,12 @@ function absoluteProductImageUrl(url) {
   const t = url.trim();
   if (!t) return '';
   if (/^https?:\/\//i.test(t)) return t;
+  if (t.startsWith('//')) {
+    const baseProto = String(process.env.TIWATER_PUBLIC_ORIGIN || process.env.FRONTEND_URL || '')
+      .trim()
+      .match(/^https?:/i)?.[0];
+    return `${baseProto || 'https:'}${t}`;
+  }
   const base = String(
     process.env.TIWATER_PUBLIC_ORIGIN ||
       process.env.FRONTEND_URL ||
@@ -78,10 +85,71 @@ function absoluteProductImageUrl(url) {
   return `${base}${path}`;
 }
 
-function firstProductImageUrl(it) {
-  const imgs = it.product?.images;
-  if (Array.isArray(imgs) && imgs.length > 0) return absoluteProductImageUrl(imgs[0]);
-  return '';
+function parseImagesField(raw) {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) return raw.filter(Boolean);
+  if (typeof raw === 'string') {
+    const t = raw.trim();
+    if (!t) return [];
+    try {
+      const parsed = JSON.parse(t);
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [t];
+    } catch {
+      return [t];
+    }
+  }
+  return [String(raw)];
+}
+
+/** Normalize item shape for email (camelCase API, snake_case, or missing nested product). */
+function emailItemFields(it) {
+  const prod = it.product && typeof it.product === 'object' ? it.product : {};
+  const codeRaw = prod.code ?? it.code ?? it.manualCode ?? it.manual_code ?? '';
+  const nameRaw = prod.name ?? it.name ?? it.manualName ?? it.manual_name ?? '';
+  const descRaw = prod.description ?? it.description ?? '';
+  const catRaw = prod.category ?? it.category ?? it.manualCategory ?? it.manual_category ?? '';
+
+  const qty = it.quantity ?? it.qty;
+  const unitPrice = it.unitPrice ?? it.unit_price;
+  const subtotal = it.subtotal ?? it.line_subtotal;
+  const notes = it.notes;
+
+  const pid = it.productId ?? it.product_id;
+  const code = String(codeRaw || '').trim() || '—';
+  const name = String(nameRaw || '').trim() || (pid != null ? `Producto #${pid}` : 'Partida');
+  const description = String(descRaw || '').trim();
+  const category = String(catRaw || '').trim();
+
+  const images = parseImagesField(prod.images ?? it.images);
+
+  return {
+    code,
+    name,
+    description,
+    category,
+    quantity: qty,
+    unitPrice,
+    subtotal,
+    notes,
+    images,
+  };
+}
+
+function firstProductImageUrlFromFields(fields) {
+  if (!fields.images.length) return '';
+  return absoluteProductImageUrl(fields.images[0]);
+}
+
+async function loadQuoteForEmail(quote) {
+  const id = quote?.id;
+  if (id == null || Number.isNaN(Number(id))) return quote;
+  try {
+    const fresh = await TIWaterQuoteModel.findById(Number(id));
+    return fresh || quote;
+  } catch (e) {
+    console.warn('[TIWaterQuoteEmail] Could not reload quote for email, using payload:', e?.message || e);
+    return quote;
+  }
 }
 
 function formalQuoteBodyHtml(quote, showPrices) {
@@ -116,26 +184,33 @@ function formalQuoteBodyHtml(quote, showPrices) {
     ? `<th style="${th}text-align:right;">PRECIO</th><th style="${th}text-align:right;">SUBTOTAL</th>`
     : '';
 
+  const tdText = `${td}color:#1a1a1a;font-size:13px;`;
+
   const rows = items
     .map((it) => {
-      const code = escapeHtml(it.product?.code || '—');
-      const name = escapeHtml(it.product?.name || `Producto #${it.productId || ''}`);
-      const desc = it.product?.description ? `<br/><span style="color:#546e7a;font-size:12px;">${escapeHtml(it.product.description)}</span>` : '';
-      const lineNotes = it.notes ? `<br/><span style="color:#37474f;font-size:12px;">${escapeHtml(it.notes)}</span>` : '';
-      const qty = formatQty(it.quantity);
-      const unit = itemUnidad(it);
-      const imgSrc = firstProductImageUrl(it);
+      const f = emailItemFields(it);
+      const code = escapeHtml(f.code);
+      const name = escapeHtml(f.name);
+      const desc = f.description
+        ? `<br/><span style="color:#546e7a;font-size:12px;">${escapeHtml(f.description)}</span>`
+        : '';
+      const lineNotes = f.notes
+        ? `<br/><span style="color:#37474f;font-size:12px;">${escapeHtml(f.notes)}</span>`
+        : '';
+      const qty = formatQty(f.quantity);
+      const unit = itemUnidadFromCategory(f.category);
+      const imgSrc = firstProductImageUrlFromFields(f);
       const imgBlock = imgSrc
-        ? `<div style="margin-bottom:6px;"><img src="${escapeHtml(imgSrc)}" width="48" height="48" alt="" style="display:block;max-width:48px;max-height:48px;border:1px solid #e0e0e0;object-fit:contain;"/></div>`
+        ? `<div style="margin-top:6px;line-height:0;"><img src="${escapeHtml(imgSrc)}" width="48" height="48" alt="" style="display:block;max-width:48px;max-height:48px;border:1px solid #e0e0e0;"/></div>`
         : '';
       const priceCells = showPrices
-        ? `<td style="${td}text-align:right;">${formatMoney(it.unitPrice)}</td><td style="${td}text-align:right;font-weight:600;">${formatMoney(it.subtotal)}</td>`
+        ? `<td style="${tdText}text-align:right;">${formatMoney(f.unitPrice)}</td><td style="${tdText}text-align:right;font-weight:600;">${formatMoney(f.subtotal)}</td>`
         : '';
       return `<tr>
-        <td style="${td}text-align:center;">${qty}</td>
-        <td style="${td}">${imgBlock}${code}</td>
-        <td style="${td}">${name}${desc}${lineNotes}</td>
-        <td style="${td}text-align:center;">${unit}</td>
+        <td style="${tdText}text-align:center;">${qty}</td>
+        <td style="${tdText}">${code}${imgBlock}</td>
+        <td style="${tdText}">${name}${desc}${lineNotes}</td>
+        <td style="${tdText}text-align:center;">${unit}</td>
         ${priceCells}
       </tr>`;
     })
@@ -233,11 +308,10 @@ function plainTextLines(quote, showPrices) {
   ];
   const items = quote.items || [];
   items.forEach((it, i) => {
-    lines.push(
-      `${i + 1}. ${it.product?.code || ''} — ${it.product?.name || ''} — Cant. ${it.quantity}`,
-    );
+    const f = emailItemFields(it);
+    lines.push(`${i + 1}. ${f.code} — ${f.name} — Cant. ${f.quantity}`);
     if (showPrices) {
-      lines.push(`   Precio ${formatMoney(it.unitPrice)}  Subtotal ${formatMoney(it.subtotal)}`);
+      lines.push(`   Precio ${formatMoney(f.unitPrice)}  Subtotal ${formatMoney(f.subtotal)}`);
     }
   });
   if (showPrices) {
@@ -250,18 +324,19 @@ function plainTextLines(quote, showPrices) {
 }
 
 export async function sendQuoteReceivedCustomerEmail(quote) {
-  const to = quote.clientEmail?.trim();
+  const q = await loadQuoteForEmail(quote);
+  const to = q.clientEmail?.trim();
   if (!isValidEmail(to)) {
     console.log('[TIWaterQuoteEmail] Skip received email: no valid clientEmail');
     return { skipped: true, reason: 'no_email' };
   }
 
-  const subject = `Cotización recibida ${quote.quoteNumber || ''} — ${BRAND}`;
+  const subject = `Cotización recibida ${q.quoteNumber || ''} — ${BRAND}`;
   const inner = `
-    <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hola ${escapeHtml(quote.clientName || 'cliente')},</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hola ${escapeHtml(q.clientName || 'cliente')},</p>
     <p style="font-size:15px;line-height:1.6;margin:0 0 24px;">Tu cotización está en proceso. Un vendedor evaluará tu solicitud y recibirás una respuesta en poco tiempo. Te agradecemos tu paciencia.</p>
     <p style="font-size:13px;font-weight:700;text-transform:uppercase;margin:0 0 12px;color:#1565c0;">Resumen de tu solicitud <span style="font-weight:400;color:#666;">(sin precios)</span></p>
-    ${formalQuoteBodyHtml(quote, false)}
+    ${formalQuoteBodyHtml(q, false)}
   `;
 
   const result = await emailHelper.sendEmail({
@@ -270,12 +345,12 @@ export async function sendQuoteReceivedCustomerEmail(quote) {
     html: wrapEmail(inner),
     ...(isValidEmail(QUOTE_REPLY_TO) ? { replyTo: QUOTE_REPLY_TO } : {}),
     text: [
-      `Hola ${quote.clientName || 'cliente'},`,
+      `Hola ${q.clientName || 'cliente'},`,
       '',
       'Tu cotización está en proceso. Un vendedor evaluará tu solicitud y recibirás una respuesta en poco tiempo. Te agradecemos tu paciencia.',
       '',
       'Resumen (sin precios):',
-      plainTextLines(quote, false),
+      plainTextLines(q, false),
     ].join('\n'),
   });
 
@@ -286,17 +361,18 @@ export async function sendQuoteReceivedCustomerEmail(quote) {
 }
 
 export async function sendQuoteResponseCustomerEmail(quote) {
-  const to = quote.clientEmail?.trim();
+  const q = await loadQuoteForEmail(quote);
+  const to = q.clientEmail?.trim();
   if (!isValidEmail(to)) {
     console.log('[TIWaterQuoteEmail] Skip response email: no valid clientEmail');
     return { skipped: true, reason: 'no_email' };
   }
 
-  const subject = `Cotización ${quote.quoteNumber || ''} — Propuesta con precios — ${BRAND}`;
+  const subject = `Cotización ${q.quoteNumber || ''} — Propuesta con precios — ${BRAND}`;
   const inner = `
-    <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hola ${escapeHtml(quote.clientName || 'cliente')},</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hola ${escapeHtml(q.clientName || 'cliente')},</p>
     <p style="font-size:15px;line-height:1.6;margin:0 0 24px;">Adjuntamos el detalle de su cotización con precios e importes. Estado: <strong>Enviada</strong>.</p>
-    ${formalQuoteBodyHtml(quote, true)}
+    ${formalQuoteBodyHtml(q, true)}
     <p style="margin-top:20px;font-size:14px;color:#2e7d32;"><strong>Estado:</strong> Cotización enviada / respondida por nuestro equipo.</p>
   `;
 
@@ -306,10 +382,10 @@ export async function sendQuoteResponseCustomerEmail(quote) {
     html: wrapEmail(inner),
     ...(isValidEmail(QUOTE_REPLY_TO) ? { replyTo: QUOTE_REPLY_TO } : {}),
     text: [
-      `Hola ${quote.clientName || 'cliente'},`,
+      `Hola ${q.clientName || 'cliente'},`,
       '',
       'Detalle de su cotización con precios:',
-      plainTextLines(quote, true),
+      plainTextLines(q, true),
     ].join('\n'),
   });
 
