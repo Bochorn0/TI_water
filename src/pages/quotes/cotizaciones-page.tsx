@@ -226,7 +226,8 @@ export function CotizacionesPage() {
   const handleAutofillCatalogPrice = (itemIndex: number) => {
     if (!editingQuote?.items) return;
     const item = editingQuote.items[itemIndex];
-    const catalogPrice = catalogPriceByProduct.get(item.productId) || 0;
+    const catalogPrice =
+      item.productId != null ? catalogPriceByProduct.get(item.productId) || 0 : 0;
     const nextItems = [...editingQuote.items];
     nextItems[itemIndex] = {
       ...item,

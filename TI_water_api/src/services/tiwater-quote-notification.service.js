@@ -59,6 +59,31 @@ function itemUnidad(it) {
   return c && c.length > 0 ? escapeHtml(c.toUpperCase()) : UNIDAD_DEFAULT;
 }
 
+/** Many clients store relative paths; email clients need absolute URLs for <img>. */
+function absoluteProductImageUrl(url) {
+  if (url == null || typeof url !== 'string') return '';
+  const t = url.trim();
+  if (!t) return '';
+  if (/^https?:\/\//i.test(t)) return t;
+  const base = String(
+    process.env.TIWATER_PUBLIC_ORIGIN ||
+      process.env.FRONTEND_URL ||
+      process.env.VITE_API_URL ||
+      '',
+  )
+    .trim()
+    .replace(/\/$/, '');
+  if (!base) return t;
+  const path = t.startsWith('/') ? t : `/${t}`;
+  return `${base}${path}`;
+}
+
+function firstProductImageUrl(it) {
+  const imgs = it.product?.images;
+  if (Array.isArray(imgs) && imgs.length > 0) return absoluteProductImageUrl(imgs[0]);
+  return '';
+}
+
 function formalQuoteBodyHtml(quote, showPrices) {
   const num = escapeHtml(quote.quoteNumber || '—');
   const client = escapeHtml(quote.clientName || '');
@@ -99,12 +124,16 @@ function formalQuoteBodyHtml(quote, showPrices) {
       const lineNotes = it.notes ? `<br/><span style="color:#37474f;font-size:12px;">${escapeHtml(it.notes)}</span>` : '';
       const qty = formatQty(it.quantity);
       const unit = itemUnidad(it);
+      const imgSrc = firstProductImageUrl(it);
+      const imgBlock = imgSrc
+        ? `<div style="margin-bottom:6px;"><img src="${escapeHtml(imgSrc)}" width="48" height="48" alt="" style="display:block;max-width:48px;max-height:48px;border:1px solid #e0e0e0;object-fit:contain;"/></div>`
+        : '';
       const priceCells = showPrices
         ? `<td style="${td}text-align:right;">${formatMoney(it.unitPrice)}</td><td style="${td}text-align:right;font-weight:600;">${formatMoney(it.subtotal)}</td>`
         : '';
       return `<tr>
         <td style="${td}text-align:center;">${qty}</td>
-        <td style="${td}">${code}</td>
+        <td style="${td}">${imgBlock}${code}</td>
         <td style="${td}">${name}${desc}${lineNotes}</td>
         <td style="${td}text-align:center;">${unit}</td>
         ${priceCells}

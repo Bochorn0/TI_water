@@ -98,25 +98,9 @@ class TIWaterQuoteModel {
       const quoteItems = [];
       
       for (const item of items) {
-        const itemQuery = `
-          INSERT INTO tiwater_quote_items (
-            quote_id, product_id, quantity, unit_price, discount, subtotal, notes
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7
-          ) RETURNING *
-        `;
-        
-        const itemValues = [
-          quote.id,
-          item.productId || item.product_id,
-          parseFloat(item.quantity || 1),
-          parseFloat(item.unitPrice || item.unit_price || 0),
-          parseFloat(item.discount || 0),
-          parseFloat(item.subtotal || 0),
-          item.notes || null
-        ];
-        
-        const itemResult = await client.query(itemQuery, itemValues);
+        const itemResult = await client.query(
+          ...this.buildQuoteItemInsertQuery(quote.id, item)
+        );
         quoteItems.push(this.parseQuoteItemRow(itemResult.rows[0]));
       }
       
@@ -205,9 +189,16 @@ class TIWaterQuoteModel {
    */
   static async getQuoteItems(quoteId) {
     const itemsQuery = `
-      SELECT qi.*, p.code, p.name, p.description, p.category, p.images AS product_images
+      SELECT
+        qi.id, qi.quote_id, qi.product_id, qi.line_kind, qi.manual_code, qi.manual_name, qi.manual_category,
+        qi.quantity, qi.unit_price, qi.discount, qi.subtotal, qi.notes, qi.created_at, qi.updated_at,
+        COALESCE(p.code, qi.manual_code) AS code,
+        COALESCE(p.name, qi.manual_name) AS name,
+        COALESCE(p.description, '') AS description,
+        COALESCE(p.category, qi.manual_category) AS category,
+        p.images AS product_images
       FROM tiwater_quote_items qi
-      JOIN tiwater_products p ON qi.product_id = p.id
+      LEFT JOIN tiwater_products p ON qi.product_id = p.id
       WHERE qi.quote_id = $1
       ORDER BY qi.id
     `;
@@ -334,25 +325,7 @@ class TIWaterQuoteModel {
         
         // Insert new items
         for (const item of data.items) {
-          const itemQuery = `
-            INSERT INTO tiwater_quote_items (
-              quote_id, product_id, quantity, unit_price, discount, subtotal, notes
-            ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7
-            )
-          `;
-          
-          const itemValues = [
-            id,
-            item.productId || item.product_id,
-            parseFloat(item.quantity || 1),
-            parseFloat(item.unitPrice || item.unit_price || 0),
-            parseFloat(item.discount || 0),
-            parseFloat(item.subtotal || 0),
-            item.notes || null
-          ];
-          
-          await client.query(itemQuery, itemValues);
+          await client.query(...this.buildQuoteItemInsertQuery(id, item));
         }
       }
       
@@ -455,10 +428,16 @@ class TIWaterQuoteModel {
   static parseQuoteItemRow(row) {
     if (!row) return null;
 
+    const lineKind = row.line_kind || (row.product_id == null ? 'manual' : 'product');
+
     return {
       id: row.id,
       quoteId: row.quote_id,
       productId: row.product_id,
+      lineKind,
+      manualCode: row.manual_code ?? undefined,
+      manualName: row.manual_name ?? undefined,
+      manualCategory: row.manual_category ?? undefined,
       quantity: parseFloat(row.quantity),
       unitPrice: parseFloat(row.unit_price),
       discount: parseFloat(row.discount || 0),
@@ -467,6 +446,60 @@ class TIWaterQuoteModel {
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
+  }
+
+  /**
+   * @param {number} quoteId
+   * @param {Object} item
+   * @returns {[string, any[]]}
+   */
+  static buildQuoteItemInsertQuery(quoteId, item) {
+    const lineKindRaw = item.lineKind ?? item.line_kind;
+    const manualName = item.manualName ?? item.manual_name;
+    const manualTrim = manualName != null ? String(manualName).trim() : '';
+    const pid = item.productId ?? item.product_id;
+    const isManual =
+      lineKindRaw === 'manual' ||
+      (manualTrim !== '' && (pid === null || pid === undefined));
+
+    const lineKind = isManual ? 'manual' : 'product';
+    const productId = isManual ? null : parseInt(pid, 10);
+
+    if (!isManual && (Number.isNaN(productId) || productId == null)) {
+      throw new Error('Cada partida de catálogo requiere productId');
+    }
+    if (isManual && !manualTrim) {
+      throw new Error('Las partidas manuales requieren nombre / concepto');
+    }
+
+    const manualCode = isManual ? (item.manualCode ?? item.manual_code ?? null) : null;
+    const manualCategory = isManual ? (item.manualCategory ?? item.manual_category ?? null) : null;
+    const manualNameVal = isManual ? manualTrim : null;
+
+    const itemQuery = `
+      INSERT INTO tiwater_quote_items (
+        quote_id, product_id, line_kind, manual_code, manual_name, manual_category,
+        quantity, unit_price, discount, subtotal, notes
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+      ) RETURNING *
+    `;
+
+    const itemValues = [
+      quoteId,
+      productId,
+      lineKind,
+      manualCode,
+      manualNameVal,
+      manualCategory,
+      parseFloat(item.quantity || 1),
+      parseFloat(item.unitPrice || item.unit_price || 0),
+      parseFloat(item.discount || 0),
+      parseFloat(item.subtotal || 0),
+      item.notes || null
+    ];
+
+    return [itemQuery, itemValues];
   }
 }
 
