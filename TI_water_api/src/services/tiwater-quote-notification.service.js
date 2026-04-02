@@ -269,7 +269,7 @@ function shortQuoteResponseBodyHtml(quote) {
   const total = Number.isFinite(Number(quote.total)) ? Number(quote.total) : subtotal + tax;
   return `
     <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hola ${escapeHtml(quote.clientName || 'cliente')},</p>
-    <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Su cotización <strong>${num}</strong> está <strong>enviada</strong>. El detalle completo con partidas y precios va <strong>adjunto en PDF</strong>. Abra el archivo adjunto para ver la cotización sin recortes.</p>
+    <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Su cotización <strong>${num}</strong> está <strong>enviada</strong>. El detalle completo con partidas y precios va <strong>adjunto en PDF</strong>.</p>
     <p style="font-size:14px;color:#333;margin:0 0 12px;">Resumen: <strong>${n}</strong> partida(s) · Total <strong>${formatMoney(total)}</strong> ${MONEDA}.</p>
     <p style="margin-top:16px;font-size:14px;color:#2e7d32;"><strong>Estado:</strong> Cotización enviada / respondida por nuestro equipo.</p>
   `;
@@ -364,8 +364,7 @@ export async function sendQuoteResponseCustomerEmail(quote) {
 
   let attachments = [];
   let inner;
-  let textIntro =
-    'Cotización con precios adjunta en PDF. Abra el archivo adjunto para ver el detalle completo (tabla, totales y comentarios).';
+  let textIntro = 'Cotización con precios adjunta en PDF (tabla, totales y comentarios).';
 
   try {
     const pdfBuffer = await generateQuotePdfBuffer(q, { showPrices: true });
