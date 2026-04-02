@@ -31,13 +31,13 @@ class EmailHelper {
 
     // SendGrid configuration
     this.sendGridApiKey = process.env.SENDGRID_API_KEY || '';
-    this.sendGridFromEmail = process.env.SENDGRID_FROM_EMAIL || process.env.SMTP_USER || 'soporte@tiwater.com.mx';
+    this.sendGridFromEmail = process.env.SENDGRID_FROM_EMAIL || process.env.SMTP_USER || 'soporte@tiwater.mx';
     this.sendGridFromName = process.env.SENDGRID_FROM_NAME || 'TI Water';
     
     // Mailgun configuration (trim keys — trailing newlines in App Settings cause 401 Forbidden)
     this.mailgunApiKey = String(process.env.MAILGUN_API_KEY || '').trim();
     this.mailgunDomain = String(process.env.MAILGUN_DOMAIN || '').trim();
-    this.mailgunFromEmail = process.env.MAILGUN_FROM_EMAIL || process.env.SMTP_USER || 'soporte@tiwater.com.mx';
+    this.mailgunFromEmail = process.env.MAILGUN_FROM_EMAIL || process.env.SMTP_USER || 'soporte@tiwater.mx';
     this.mailgunFromName = process.env.MAILGUN_FROM_NAME || 'TI Water';
     const mailgunRegion = String(process.env.MAILGUN_REGION || '').toLowerCase();
     const mailgunEu =
@@ -51,7 +51,7 @@ class EmailHelper {
     
     // Resend configuration
     this.resendApiKey = process.env.RESEND_API_KEY || '';
-    this.resendFromEmail = process.env.RESEND_FROM_EMAIL || process.env.SMTP_USER || 'soporte@tiwater.com.mx';
+    this.resendFromEmail = process.env.RESEND_FROM_EMAIL || process.env.SMTP_USER || 'soporte@tiwater.mx';
     this.resendFromName = process.env.RESEND_FROM_NAME || 'TI Water';
     
     // SMTP configuration (fallback if SendGrid not configured)
@@ -285,6 +285,19 @@ class EmailHelper {
   }
 
   /**
+   * From header: env / explicit option, else provider default. Empty string counts as missing.
+   * Mailgun requires @domain to match MAILGUN_DOMAIN (e.g. soporte@tiwater.mx for domain tiwater.mx).
+   */
+  resolveFromForProvider(optionsFrom) {
+    const raw = optionsFrom != null ? String(optionsFrom).trim() : '';
+    if (raw) return raw;
+    if (this.emailProvider === 'mailgun') return this.mailgunFromEmail;
+    if (this.emailProvider === 'sendgrid') return this.sendGridFromEmail;
+    if (this.emailProvider === 'resend') return this.resendFromEmail;
+    return this.defaultFrom;
+  }
+
+  /**
    * Send email using SendGrid API
    * @param {Object} options - Email options
    * @returns {Promise<Object>} Result object
@@ -392,31 +405,76 @@ class EmailHelper {
       };
     }
 
-    try {
-      const domainPath = encodeURIComponent(this.mailgunDomain);
-      const url = `${this.mailgunApiBase}/${domainPath}/messages`;
+    const MG_US_BASE = 'https://api.mailgun.net/v3';
+    const MG_EU_BASE = 'https://api.eu.mailgun.net/v3';
 
-      const formData = new URLSearchParams();
-      formData.append('from', `${fromName} <${from}>`);
-      if (Array.isArray(to)) {
-        to.forEach(email => formData.append('to', email));
-      } else {
-        formData.append('to', to);
-      }
-      formData.append('subject', subject);
-      if (html) formData.append('html', html);
-      if (text) formData.append('text', text);
-      if (replyTo) {
-        formData.append('h:Reply-To', typeof replyTo === 'string' ? replyTo.trim() : String(replyTo));
-      }
+    const domainPath = encodeURIComponent(this.mailgunDomain);
+    const formData = new URLSearchParams();
+    formData.append('from', `${fromName} <${from}>`);
+    if (Array.isArray(to)) {
+      to.forEach((email) => formData.append('to', email));
+    } else {
+      formData.append('to', to);
+    }
+    formData.append('subject', subject);
+    if (html) formData.append('html', html);
+    if (text) formData.append('text', text);
+    if (replyTo) {
+      formData.append('h:Reply-To', typeof replyTo === 'string' ? replyTo.trim() : String(replyTo));
+    }
 
-      const response = await axios.post(url, formData.toString(), {
+    const postMailgun = async (apiBase) => {
+      const url = `${apiBase}/${domainPath}/messages`;
+      return axios.post(url, formData.toString(), {
         headers: {
-          'Authorization': `Basic ${Buffer.from(`api:${this.mailgunApiKey}`).toString('base64')}`,
+          Authorization: `Basic ${Buffer.from(`api:${this.mailgunApiKey}`).toString('base64')}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         timeout: 10000,
       });
+    };
+
+    const logMailgunFailure = (error, apiBase) => {
+      const status = error.response?.status;
+      const data = error.response?.data;
+      const bodyStr =
+        typeof data === 'string' ? data : (data && typeof data.message === 'string' ? data.message : '');
+      let hint;
+      if (status === 401 || status === 403) {
+        hint =
+          '1) New Mailgun accounts are often EU: set MAILGUN_EU=true in App Settings and restart. 2) Use Private API key (key-...) from Mailgun → Sending → your domain. 3) MAILGUN_DOMAIN must match the exact domain name in Mailgun.';
+      } else if (status === 400 && bodyStr.toLowerCase().includes('from parameter')) {
+        hint = `From must match MAILGUN_DOMAIN="${this.mailgunDomain}" (e.g. soporte@tiwater.mx). Remove MAILGUN_FROM_EMAIL=soporte@tiwater.com.mx from App Settings unless tiwater.com.mx is verified in Mailgun.`;
+      }
+      console.error('[EmailHelper] Mailgun request failed:', {
+        status,
+        urlHost: apiBase,
+        domain: this.mailgunDomain,
+        body: typeof data === 'string' ? data : data?.message || data,
+        hint,
+      });
+    };
+
+    try {
+      let response;
+      let usedBase = this.mailgunApiBase;
+      try {
+        response = await postMailgun(usedBase);
+      } catch (firstErr) {
+        const st = firstErr.response?.status;
+        const allowEuFallback = process.env.MAILGUN_AUTO_EU_FALLBACK !== 'false';
+        const triedUs = usedBase === MG_US_BASE || usedBase.startsWith(`${MG_US_BASE}/`);
+        if (allowEuFallback && (st === 401 || st === 403) && triedUs) {
+          console.warn(
+            '[EmailHelper] Mailgun US returned 401/403; retrying once with EU endpoint (set MAILGUN_EU=true to skip this hop).',
+          );
+          usedBase = MG_EU_BASE;
+          response = await postMailgun(MG_EU_BASE);
+          console.log('[EmailHelper] Mailgun EU send OK. Add MAILGUN_EU=true to App Settings and restart for faster startup.');
+        } else {
+          throw firstErr;
+        }
+      }
 
       console.log('[EmailHelper] Email sent via Mailgun:', {
         to,
@@ -430,18 +488,10 @@ class EmailHelper {
         provider: 'mailgun',
       };
     } catch (error) {
-      const status = error.response?.status;
       const data = error.response?.data;
-      console.error('[EmailHelper] Mailgun request failed:', {
-        status,
-        urlHost: this.mailgunApiBase,
-        domain: this.mailgunDomain,
-        body: typeof data === 'string' ? data : data?.message || data,
-        hint:
-          status === 401 || status === 403
-            ? 'Use Private API key (starts with key-...), exact Sending domain from Mailgun, and MAILGUN_EU=true if the account is in EU.'
-            : undefined,
-      });
+      const reqUrl = error.config?.url || '';
+      const failedHost = reqUrl.includes('eu.mailgun') ? MG_EU_BASE : this.mailgunApiBase;
+      logMailgunFailure(error, failedHost);
       return {
         success: false,
         error:
@@ -544,10 +594,12 @@ class EmailHelper {
       subject,
       html,
       text,
-      from = this.defaultFrom,
+      from: fromOption,
       attachments = [],
       replyTo,
     } = options;
+
+    const from = this.resolveFromForProvider(fromOption);
 
     // Validate required fields
     if (!to || !subject || (!html && !text)) {
@@ -578,7 +630,7 @@ class EmailHelper {
 
     try {
       const mailOptions = {
-        from: `"TI Water" <${from}>`,
+        from: `"TI Water" <${from || this.defaultFrom}>`,
         to: Array.isArray(to) ? to.join(', ') : to,
         subject,
         html: html || text,
