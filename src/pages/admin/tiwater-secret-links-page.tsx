@@ -26,21 +26,23 @@ function publicUrlForPath(path: string) {
 
 export function TiwaterSecretLinksPage() {
   const [items, setItems] = useState<SecretLinkListItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  /** List fetch must not disable "Crear enlace" (was one shared `loading` flag and looked broken). */
+  const [listLoading, setListLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [password, setPassword] = useState('');
   const [expiresLocal, setExpiresLocal] = useState('');
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setListLoading(true);
     try {
       const r = await secretLinkService.list();
       setItems(r.items || []);
     } catch (e) {
       toast.error(getApiErrorMessage(e, 'Error al cargar enlaces'));
     } finally {
-      setLoading(false);
+      setListLoading(false);
     }
   }, []);
 
@@ -57,13 +59,13 @@ export function TiwaterSecretLinksPage() {
       toast.error('La contraseña debe tener al menos 8 caracteres');
       return;
     }
-    setLoading(true);
+    setSaving(true);
     try {
       const expiresAt =
         expiresLocal.trim() === '' ? null : new Date(expiresLocal).toISOString();
       if (expiresLocal.trim() !== '' && Number.isNaN(new Date(expiresAt || '').getTime())) {
         toast.error('Fecha de expiración no válida');
-        setLoading(false);
+        setSaving(false);
         return;
       }
       const created = await secretLinkService.create({
@@ -88,7 +90,7 @@ export function TiwaterSecretLinksPage() {
     } catch (e) {
       toast.error(getApiErrorMessage(e, 'Error al crear enlace'));
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -232,8 +234,18 @@ export function TiwaterSecretLinksPage() {
             fullWidth
           />
           <Box>
-            <Button type="submit" variant="contained" disabled={loading}>
-              Crear enlace
+            {password.length > 0 && password.length < 8 && (
+              <Typography variant="caption" color="warning.main" display="block" sx={{ mb: 1 }}>
+                Mínimo 8 caracteres: lleva {password.length} de 8.
+              </Typography>
+            )}
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={saving}
+              color="primary"
+            >
+              {saving ? 'Creando…' : 'Crear enlace'}
             </Button>
           </Box>
         </Box>
@@ -243,7 +255,7 @@ export function TiwaterSecretLinksPage() {
           rows={items}
           rowId={(r) => r.id}
           columns={columns}
-          loading={loading}
+          loading={listLoading}
           enableSelection={false}
         />
       </Box>
