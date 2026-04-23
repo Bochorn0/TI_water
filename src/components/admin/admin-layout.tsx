@@ -27,7 +27,9 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import SearchIcon from '@mui/icons-material/Search';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import { useAuth } from 'src/auth/auth-context';
+import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined';
 import {
+  canManageSecretLinks,
   canManageTiwaterCatalog,
   canManageTiwaterQuotes,
   canManageUsersAndRoles,
@@ -58,6 +60,7 @@ export function AdminLayout() {
 
   const showCatalog = canManageTiwaterCatalog(user);
   const showQuotes = canManageTiwaterQuotes(user);
+  const showSecretLinks = canManageSecretLinks(user);
   const showUsers = canManageUsersAndRoles(user);
 
   useEffect(() => {
@@ -103,6 +106,13 @@ export function AdminLayout() {
         match: (p) => p.startsWith('/admin/cotizaciones'),
       },
       {
+        label: 'Enlaces cifrados',
+        path: '/admin/enlaces',
+        icon: <VpnKeyOutlinedIcon />,
+        show: showSecretLinks,
+        match: (p) => p.startsWith('/admin/enlaces'),
+      },
+      {
         label: 'Usuarios',
         path: '/admin/usuarios',
         icon: <PeopleOutlineIcon />,
@@ -124,7 +134,7 @@ export function AdminLayout() {
         match: (p) => p.startsWith('/admin/ajustes'),
       },
     ],
-    [showCatalog, showQuotes, showUsers],
+    [showCatalog, showQuotes, showSecretLinks, showUsers],
   );
 
   const visibleNav = navItems.filter((n) => n.show);

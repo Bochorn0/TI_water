@@ -30,3 +30,15 @@ export function canManageTiwaterQuotes(user: AuthUser | null): boolean {
   return perms.has('/tiwater-quotes') || perms.has('/tiwater-catalog');
 }
 
+/** Enlaces cifrados (compartir secretos a usuarios con contraseña) — mismos perfiles que catálogo/cotizaciones o usuarios. */
+export function canManageSecretLinks(user: AuthUser | null): boolean {
+  if (!user?.role) return false;
+  if (isAdmin(user)) return true;
+  const perms = permSet(user);
+  return (
+    perms.has('/tiwater-catalog') ||
+    perms.has('/tiwater-quotes') ||
+    perms.has('/usuarios')
+  );
+}
+

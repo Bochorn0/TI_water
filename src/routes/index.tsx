@@ -11,12 +11,15 @@ import { AdminUsersPage } from 'src/pages/admin/admin-users-page';
 import { AdminRolesPage } from 'src/pages/admin/admin-roles-page';
 import { AdminSettingsPage } from 'src/pages/admin/admin-settings-page';
 import { TiwaterQuotesAdminPage } from 'src/pages/admin/tiwater-quotes-page';
+import { TiwaterSecretLinksPage } from 'src/pages/admin/tiwater-secret-links-page';
+import { SecretLinkPage } from 'src/pages/share/secret-link-page';
 import { ProtectedAdminRoute } from 'src/components/auth/protected-route';
 import { AdminLayout } from 'src/components/admin/admin-layout';
 import { AdminDashboardPage } from 'src/pages/admin/admin-dashboard-page';
 import { CatalogRouteGuard } from 'src/components/admin/catalog-route-guard';
 import { UsersRouteGuard } from 'src/components/admin/users-route-guard';
 import { QuotesRouteGuard } from 'src/components/admin/quotes-route-guard';
+import { SecretLinksRouteGuard } from 'src/components/admin/secret-links-route-guard';
 
 export function Router() {
   return (
@@ -26,6 +29,7 @@ export function Router() {
       <Route path="/purificadores" element={<PurificadoresPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/cotizaciones" element={<CotizacionesPage />} />
+      <Route path="/e/:slug" element={<SecretLinkPage />} />
       <Route path="/login" element={<LoginPage />} />
 
       <Route
@@ -59,6 +63,14 @@ export function Router() {
             <QuotesRouteGuard>
               <TiwaterQuotesAdminPage />
             </QuotesRouteGuard>
+          }
+        />
+        <Route
+          path="enlaces"
+          element={
+            <SecretLinksRouteGuard>
+              <TiwaterSecretLinksPage />
+            </SecretLinksRouteGuard>
           }
         />
         <Route
