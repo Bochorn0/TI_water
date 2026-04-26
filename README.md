@@ -32,6 +32,10 @@ npm run dev
 
 El sitio estará disponible en `http://localhost:3040`
 
+### Vista previa del build (producción local)
+
+`npm run start` corresponde a `vite preview` y usa **el puerto 3041** (no 3040), para que no compita con `npm run dev`. Tras `npm run build`, abre `http://localhost:3041/`.
+
 ## 🏗️ Build
 
 ```bash

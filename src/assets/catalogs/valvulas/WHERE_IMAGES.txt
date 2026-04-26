@@ -1,0 +1,18 @@
+Todas las imágenes de esta tanda viven en: public/catalogs/products/
+Nombres: TIWVAL001_main.png … TIWVAL006_thumb-06.png (ver BATCH-MANIFEST.json).
+
+Regenerar JSON + imágenes desde el PDF (p.5–10):
+  npm run catalog:valvulas   (o: node scripts/process-valvulas-catalog.mjs)
+
+Solo imágenes (sin tocar product.json) + zip para subir a Azure Blob / descomprimir en el agente de build:
+  npm run catalog:prepare-images
+  npm run catalog:build-images
+  npm run catalog:prepare-images -- --only TIWVAL002
+
+CI (GitHub Actions → Azure Static Web Apps): al hacer push, el workflow instala Poppler,
+ejecuta catalog:build-images y luego npm run build. Coloca Catalogo_valvulas.pdf en
+src/assets/catalogs/ y haz commit (queda en el repo). Las PNG se generan en el runner
+y Vite copia public/catalogs/products/ a dist/.
+
+Import a Postgres (API):
+  cd TI_water_api && npm run import:all:valvulas

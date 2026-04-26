@@ -16,16 +16,44 @@ const DEV_API_BASE = 'http://localhost:3009/api/v1.0';
 
 const rawEnv = import.meta.env.VITE_API_BASE_URL;
 const isDev = import.meta.env.DEV;
-const isOldOrHttp = !rawEnv || rawEnv.includes('164.92.95.176') || rawEnv.startsWith('http://');
-const API_BASE_URL = normalizeToApiV1(
-  !isDev && isOldOrHttp
+// Do NOT treat all http:// URLs as "legacy" — that forced Azure even for http://localhost
+// in `vite build` + `vite preview` (import.meta.env.DEV is false there).
+const legacyDroplet = Boolean(rawEnv?.includes('164.92.95.176'));
+const useHardcodedAzure = !isDev && (!rawEnv || legacyDroplet);
+
+let API_BASE_URL = normalizeToApiV1(
+  useHardcodedAzure
     ? PRODUCTION_API_BASE
     : (rawEnv || (isDev ? DEV_API_BASE : PRODUCTION_API_BASE)),
 ).replace(/\/+$/, '');
 
-const rawTiwater = import.meta.env.VITE_API_BASE_URL_TIWATER;
+/**
+ * `vite build` bakes VITE_API_BASE_URL into the bundle. Preview (`npm run start`) therefore
+ * still had the Azure URL. When the app runs in the browser on localhost, prefer the local API.
+ * Set VITE_API_LOCAL_USE_PROD=true at build time to test the real Azure API from a local tab.
+ */
+function shouldUseLocalApiFromBrowser() {
+  if (import.meta.env.VITE_API_LOCAL_USE_PROD === 'true') return false;
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname;
+  return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
+}
+if (shouldUseLocalApiFromBrowser()) {
+  if (rawEnv && (rawEnv.includes('localhost') || rawEnv.includes('127.0.0.1'))) {
+    API_BASE_URL = normalizeToApiV1(rawEnv).replace(/\/+$/, '');
+  } else {
+    API_BASE_URL = DEV_API_BASE;
+  }
+}
+
+const rawTiwater = import.meta.env.VITE_API_BASE_URL_TIWATER as string | undefined;
+const baseWasBakedToRemote = Boolean(
+  !rawEnv || (!rawEnv.includes('127.0.0.1') && !rawEnv.includes('localhost')),
+);
 const API_BASE_URL_TIWATER = normalizeToApiV1(
-  rawTiwater || `${API_BASE_URL}/tiwater`,
+  shouldUseLocalApiFromBrowser() && baseWasBakedToRemote
+    ? `${API_BASE_URL}/tiwater`
+    : rawTiwater || `${API_BASE_URL}/tiwater`,
 ).replace(/\/+$/, '');
 
 /** Same as API_BASE_URL — auth is /api/v1.0/auth/login, tiwater is API_BASE_URL_TIWATER */

@@ -1,3 +1,7 @@
+# If this repository is the Aquatech *monorepo*, the workflow that actually runs is
+# ../../.github/workflows/tiwater-static-web-app.yml (repo root). This file is used when
+# this project is the git repository root (standalone TI Water app).
+
 name: Azure Static Web Apps CI/CD (frontend)
 
 on:
@@ -26,15 +30,44 @@ jobs:
           submodules: true
           lfs: false
 
+      # Repo may be TI Water at root, or Aquatech monorepo with TI_water/ subfolder.
+      - name: Resolve app root
+        id: app
+        run: |
+          if [ -f package.json ] && [ -d scripts ]; then
+            echo "dir=." >> "$GITHUB_OUTPUT"
+            echo "dist=dist" >> "$GITHUB_OUTPUT"
+          elif [ -f TI_water/package.json ]; then
+            echo "dir=TI_water" >> "$GITHUB_OUTPUT"
+            echo "dist=TI_water/dist" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Could not find TI Water package.json (current dir or TI_water/)."
+            exit 1
+          fi
+
+      # Poppler: pdfimages / pdftotext (Catalogo_valvulas.pdf → public/catalogs/products/*.png)
+      - name: Install Poppler
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+
       # Build on the runner so VITE_* are injected (Oryx often does not see job env).
       # VITE_API_BASE_URL example: https://<app>.azurewebsites.net/api/v1.0
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
+          cache-dependency-path: ${{ format('{0}/package-lock.json', steps.app.outputs.dir) }}
 
-      - name: Install and build frontend
-        run: npm ci && npm run build
+      - name: Install dependencies
+        working-directory: ${{ steps.app.outputs.dir }}
+        run: npm ci
+
+      - name: Generate valvula catalog images from committed PDF
+        working-directory: ${{ steps.app.outputs.dir }}
+        run: npm run catalog:build-images
+
+      - name: Build frontend
+        working-directory: ${{ steps.app.outputs.dir }}
+        run: npm run build
         env:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           VITE_API_BASE_URL_TIWATER: ${{ secrets.VITE_API_BASE_URL_TIWATER }}
@@ -47,7 +80,7 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           action: "upload"
           skip_app_build: true
-          app_location: "dist"
+          app_location: ${{ steps.app.outputs.dist }}
           api_location: ""
 
   close_pull_request_job:

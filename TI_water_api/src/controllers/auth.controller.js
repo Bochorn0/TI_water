@@ -102,6 +102,22 @@ export const loginUser = [
 ];
 
 /**
+ * Current user (JWT) — use to refresh role/permissions after DB changes or stale localStorage.
+ */
+export async function getMe(req, res) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'No autorizado' });
+    const user = await UserModel.findById(userId);
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+    return res.json({ user: toUserResponse({ ...user, role_id: user.role_id }) });
+  } catch (error) {
+    console.error('getMe', error);
+    return res.status(500).json({ message: 'Server Error' });
+  }
+}
+
+/**
  * Update current user profile (JWT). No /usuarios permission required.
  * Body: nombre?, puesto?, avatar?, password? (requires currentPassword)
  */

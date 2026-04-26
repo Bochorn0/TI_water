@@ -1,6 +1,8 @@
 // src/types/product.types.ts
 // TypeScript types for TI Water products
 
+import type { CatalogProductSpecifications } from './catalog-spec.types';
+
 export enum ProductCategory {
   GENERAL = 'general',
   PRESURIZADORES = 'presurizadores',
@@ -11,12 +13,14 @@ export enum ProductCategory {
 
 export interface Product {
   id: number;
+  /** TIW + tipo (3 letras) + 001…999, p. ej. TIWVAL001 */
+  productKey?: string | null;
   code: string;
   name: string;
   description?: string;
   category?: ProductCategory | string;
   price?: number;
-  specifications?: Record<string, any>;
+  specifications?: CatalogProductSpecifications | Record<string, unknown>;
   images?: string[];
   catalogSource?: string;
   pageNumber?: number;

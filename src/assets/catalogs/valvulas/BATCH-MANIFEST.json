@@ -1,0 +1,42 @@
+{
+  "generatedAt": "2026-04-26T17:34:02.687Z",
+  "pdf": "Catalogo_valvulas.pdf",
+  "items": [
+    {
+      "productKey": "TIWVAL001",
+      "code": "AQT-56",
+      "page": 5,
+      "json": "valvulas/AQT-56/product.json"
+    },
+    {
+      "productKey": "TIWVAL002",
+      "code": "AQT-275",
+      "page": 6,
+      "json": "valvulas/AQT-275/product.json"
+    },
+    {
+      "productKey": "TIWVAL003",
+      "code": "AQT-285",
+      "page": 7,
+      "json": "valvulas/AQT-285/product.json"
+    },
+    {
+      "productKey": "TIWVAL004",
+      "code": "AQT-290",
+      "page": 8,
+      "json": "valvulas/AQT-290/product.json"
+    },
+    {
+      "productKey": "TIWVAL005",
+      "code": "AQT-315",
+      "page": 9,
+      "json": "valvulas/AQT-315/product.json"
+    },
+    {
+      "productKey": "TIWVAL006",
+      "code": "AQT-390",
+      "page": 10,
+      "json": "valvulas/AQT-390/product.json"
+    }
+  ]
+}

@@ -15,7 +15,10 @@
     "rm:all": "rm -rf node_modules .next out dist build",
     "re:start": "yarn rm:all && yarn install && yarn dev",
     "re:build": "yarn rm:all && yarn install && yarn build",
-    "dev:host": "vite --host"
+    "dev:host": "vite --host",
+    "catalog:valvulas": "node scripts/process-valvulas-catalog.mjs",
+    "catalog:prepare-images": "node scripts/prepare-catalog-images.mjs",
+    "catalog:build-images": "node scripts/prepare-catalog-images.mjs --no-zip"
   },
   "engines": {
     "node": "20.x"

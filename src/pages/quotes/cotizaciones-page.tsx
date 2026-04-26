@@ -41,12 +41,13 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from 'src/auth/auth-context';
 import { canManageTiwaterQuotes } from 'src/auth/permissions';
+import { useQuoteDraft } from 'src/quote/quote-draft-context';
 import { Header } from 'src/components/header';
 import { Footer } from 'src/components/footer';
 import { productService } from 'src/services/product.service';
 import { quoteService } from 'src/services/quote.service';
 import type { Product } from 'src/types/product.types';
-import type { Quote, QuoteItem, QuoteStatus } from 'src/types/quote.types';
+import type { Quote, QuoteStatus } from 'src/types/quote.types';
 
 function catalogLineQuantity(value: unknown): number {
   const n = Math.floor(Number(value));
@@ -57,6 +58,13 @@ function catalogLineQuantity(value: unknown): number {
 export function CotizacionesPage() {
   const { isAuthenticated, user } = useAuth();
   const isQuoteManager = canManageTiwaterQuotes(user);
+  const {
+    items: quoteItems,
+    addProduct: handleAddProduct,
+    removeItem: handleRemoveItem,
+    updateItem: handleUpdateItem,
+    clear: clearQuoteDraft,
+  } = useQuoteDraft();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +73,6 @@ export function CotizacionesPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [productModalOpen, setProductModalOpen] = useState(false);
-  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('');
@@ -147,43 +154,6 @@ export function CotizacionesPage() {
     }
   };
 
-  const handleAddProduct = (product: Product) => {
-    const existingItemIndex = quoteItems.findIndex((item) => item.productId === product.id);
-    if (existingItemIndex >= 0) {
-      const updatedItems = [...quoteItems];
-      updatedItems[existingItemIndex].quantity += 1;
-      setQuoteItems(updatedItems);
-    } else {
-      const newItem: QuoteItem = {
-        productId: product.id,
-        product: {
-          code: product.code,
-          name: product.name,
-          description: product.description,
-          category: product.category,
-        },
-        quantity: 1,
-        unitPrice: 0,
-        discount: 0,
-        subtotal: 0,
-        notes: '',
-      };
-      setQuoteItems([...quoteItems, newItem]);
-    }
-  };
-
-  const handleRemoveItem = (index: number) => {
-    const updatedItems = quoteItems.filter((_, i) => i !== index);
-    setQuoteItems(updatedItems);
-  };
-
-  const handleUpdateItem = (index: number, field: 'quantity' | 'notes', value: number | string) => {
-    const updatedItems = [...quoteItems];
-    if (field === 'quantity') updatedItems[index].quantity = catalogLineQuantity(value);
-    if (field === 'notes') updatedItems[index].notes = String(value);
-    setQuoteItems(updatedItems);
-  };
-
   const handleSubmitQuote = async () => {
     if (!clientName.trim()) {
       setError('El nombre del cliente es requerido');
@@ -214,7 +184,7 @@ export function CotizacionesPage() {
 
       await quoteService.create(quote);
       setSubmitSuccess(true);
-      setQuoteItems([]);
+      clearQuoteDraft();
       setClientName('');
       setClientEmail('');
       setClientPhone('');

@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom';
 import { HomePage } from 'src/pages/home';
 import { AboutPage } from 'src/pages/about';
 import { PurificadoresPage } from 'src/pages/purificadores';
+import { PublicCatalogPage } from 'src/pages/catalogo';
 import { ContactPage } from 'src/pages/contact';
 import { CotizacionesPage } from 'src/pages/quotes';
 import { LoginPage } from 'src/pages/auth/login-page';
@@ -27,6 +28,7 @@ export function Router() {
       <Route path="/" element={<HomePage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/purificadores" element={<PurificadoresPage />} />
+      <Route path="/catalogo" element={<PublicCatalogPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/cotizaciones" element={<CotizacionesPage />} />
       <Route path="/e/:slug" element={<SecretLinkPage />} />

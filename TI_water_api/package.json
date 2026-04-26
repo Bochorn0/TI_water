@@ -11,7 +11,10 @@
     "migrate:quotes": "bash scripts/migrations/run-tiwater-migration.sh scripts/migrations/004_create_tiwater_products_table.sql && bash scripts/migrations/run-tiwater-migration.sh scripts/migrations/005_create_tiwater_quotes_table.sql",
     "migrate:all": "yarn migrate:auth && yarn migrate:quotes",
     "migrate:all:node": "node scripts/migrations/run-all-migrations.js",
-    "seed:admin": "node scripts/seed-admin-user.js"
+    "seed:admin": "node scripts/seed-admin-user.js",
+    "import:catalog": "node scripts/import-catalog-from-json.mjs",
+    "import:all:valvulas": "node scripts/import-all-valvulas-json.mjs",
+    "next:product-key": "node scripts/next-catalog-product-key.mjs"
   },
   "dependencies": {
     "form-data": "^4.0.1",

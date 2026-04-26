@@ -1,0 +1,3 @@
+Imágenes en: public/catalogs/products/
+Nombres: TIWVAL001_main.png, TIWVAL001_thumb-01.png …
+Regenerar: PRODUCT_KEY=TIWVAL001 bash scripts/extract-catalog-pdf-images.sh

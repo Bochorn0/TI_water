@@ -1,0 +1,308 @@
+Source: ../Catalogo_valvulas.pdf
+PDF page index: 5 (1-based, pdftotext -f 5)
+Printed section footer on page: "VÁLVULAS | 7" (this is the catalog’s section number, not the PDF file page)
+
+[Raw text follows — for audit / re-entry]
+VÁLVULA AQT-56 (RESIDENCIAL / COMERCIAL LIGERO)
+AQUATROL ™
+
+SERIE AQT-56 - Filtro/Suavizador
+Control por Tiempo y Flujo
+Las válvulas Aquatrol AQT-56 ofrecen un cuerpo rígido de Noryl para una mayor resistencia y durabilidad.
+El control por tiempo y flujo de la AQT-56 tiene un
+consumo energético muy bajo y en su interior podrá
+encontrar sellos y pistones de alta precisión. Con una
+amplia gama de pistones, así como partes internas
+como DLFC, BLFC e inyectores, la AQT-56 puede ser
+personalizada para cumplir todas sus espectativas
+para el acondicionamiento de agua.
+VIRTUDES Y BENEFICIOS
+• Diseño de cuerpo en Noryl de
+alta durabilidad no corrosivo.
+
+• Para aplicaciones residenciales
+
+AQT-56FT
+
+y comerciales ligeras.
+
+• Conexión en 3/4” y 1”.
+• Control por tiempo de 12 días.
+• Control por flujo de hasta 2100 galones.
+
+TABLA DE COMPARACIÓN DE VÁLVULAS AQUATROL™ AQT-56 (RESIDENCIAL / COMERCIAL LIGERO)
+Número de Parte
+
+AQT-56FT
+
+AQT-56ST
+
+AQT-56SM
+
+AQT-56SE-FT
+
+AQT-56SE-ST
+
+AQT-56SE-SM
+
+Conexión
+
+3/4" - 1"
+
+3/4" - 1"
+
+3/4" - 1"
+
+3/4" - 1"
+
+3/4" - 1"
+
+3/4" - 1"
+
+Servicio
+
+20 gpm
+
+20 gpm
+
+20 gpm
+
+20 gpm
+
+20 gpm
+
+20 gpm
+
+Servicio Máx.
+
+26 gpm
+
+26 gpm
+
+26 gpm
+
+26 gpm
+
+26 gpm
+
+26 gpm
+
+Retrolavado
+
+7 gpm
+
+7 gpm
+
+7 gpm
+
+7 gpm
+
+7 gpm
+
+7 gpm
+
+Drenaje
+
+1/2”
+
+1/2”
+
+1/2”
+
+1/2”
+
+1/2”
+
+1/2”
+
+Distribuidor
+
+1.05" OD
+
+1.05" OD
+
+1.05" OD
+
+1.05" OD
+
+1.05" OD
+
+1.05" OD
+
+Base
+
+2.5" 8 NPSM
+
+2.5" 8 NPSM
+
+2.5" 8 NPSM
+
+2.5" 8 NPSM
+
+2.5" 8 NPSM
+
+2.5" 8 NPSM
+
+Material
+
+Noryl
+
+Noryl
+
+Noryl
+
+Noryl
+
+Noryl
+
+Noryl
+
+Línea Salmuera
+
+no
+
+3/8”
+
+3/8”
+
+no
+
+3/8”
+
+3/8”
+
+Control Mecánico
+
+Tiempo
+
+Tiempo
+
+Flujo
+
+no
+
+no
+
+no
+
+Control Digital
+
+no
+
+no
+
+no
+
+SE Tiempo
+
+SE Tiempo
+
+SE Flujo
+
+Reg. Inmediata
+
+no
+
+no
+
+no
+
+si, ajustable
+
+si, ajustable
+
+si, ajustable
+
+Reg. Retardada
+
+12:00 am
+
+2:00 am
+
+2:00 am
+
+si, ajustable
+
+si, ajustable
+
+si, ajustable
+
+Ciclos
+
+3
+
+5
+
+5
+
+3
+
+5
+
+5
+
+Ciclos Ajustables
+
+no
+
+Refill Salmuera
+
+Refill Salmuera
+
+Todos
+
+Todos
+
+Todos
+
+Medidor
+
+no
+
+no
+
+2100 gal
+
+no
+
+turbina
+
+turbina
+
+Filtros (Tamaño Tanque)
+
+6” - 12”
+
+no
+
+no
+
+6” - 12”
+
+no
+
+no
+
+Suavizadores
+(Tamaño Tanque)
+
+no
+
+6” - 13”
+
+6” - 13”
+
+no
+
+6” - 13”
+
+6” - 13”
+
+Nota: Importante. Las características que se muestran en la tabla son valores dados por el fabricante. Son valores calculados bajo condiciones específicas e ideales. Para uso de agua con condiciones especiales, verificar primero con su
+distribuidor para más detalles. estos datos de manera informativa, por lo que no se hace responsable por la mala selección, uso y mantenimiento de la válvula y/o sus componentes internos. Es responsabilidad del cliente y/o instalador verificar que
+cumplan con sus necesidades de ingeniería.
+Nota: Los tamaños de tanques sugeridos están basados en un factor de filtración de 10 gpm/ft 2.
+
+VÁLVULAS | 7
+
+

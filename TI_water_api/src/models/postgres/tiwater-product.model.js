@@ -16,14 +16,15 @@ class TIWaterProductModel {
   static async create(data) {
     const insertQuery = `
       INSERT INTO tiwater_products (
-        code, name, description, category, price,
+        product_key, code, name, description, category, price,
         specifications, images, catalog_source, page_number, is_active
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
       ) RETURNING *
     `;
 
     const values = [
+      data.productKey || data.product_key || null,
       data.code || null,
       data.name || null,
       data.description || null,
@@ -69,6 +70,12 @@ class TIWaterProductModel {
       paramIndex++;
     }
 
+    if (filters.productKey || filters.product_key) {
+      whereClause += ` AND product_key = $${paramIndex}`;
+      values.push(filters.productKey || filters.product_key);
+      paramIndex++;
+    }
+
     if (filters.category) {
       whereClause += ` AND category = $${paramIndex}`;
       values.push(filters.category);
@@ -88,15 +95,15 @@ class TIWaterProductModel {
     }
 
     if (filters.search) {
-      // Full-text search on name and description
       whereClause += ` AND (
-        name ILIKE $${paramIndex} OR 
+        name ILIKE $${paramIndex} OR
         description ILIKE $${paramIndex} OR
-        code ILIKE $${paramIndex}
+        code ILIKE $${paramIndex} OR
+        product_key ILIKE $${paramIndex}
       )`;
       const searchTerm = `%${filters.search}%`;
-      values.push(searchTerm, searchTerm, searchTerm);
-      paramIndex += 3;
+      values.push(searchTerm, searchTerm, searchTerm, searchTerm);
+      paramIndex += 4;
     }
 
     const selectQuery = `
@@ -141,12 +148,27 @@ class TIWaterProductModel {
    */
   static async findByCode(code) {
     const selectQuery = 'SELECT * FROM tiwater_products WHERE code = $1';
-    
+
     try {
       const result = await query(selectQuery, [code]);
       return result.rows.length > 0 ? this.parseRow(result.rows[0]) : null;
     } catch (error) {
       console.error('[TIWaterProductModel] Error finding product by code:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * @param {String} productKey e.g. TIWVAL001
+   */
+  static async findByProductKey(productKey) {
+    if (!productKey) return null;
+    const selectQuery = 'SELECT * FROM tiwater_products WHERE product_key = $1';
+    try {
+      const result = await query(selectQuery, [String(productKey).trim()]);
+      return result.rows.length > 0 ? this.parseRow(result.rows[0]) : null;
+    } catch (error) {
+      console.error('[TIWaterProductModel] Error finding product by product_key:', error);
       throw error;
     }
   }
@@ -202,6 +224,10 @@ class TIWaterProductModel {
     if (data.isActive !== undefined) {
       fields.push(`is_active = $${paramIndex++}`);
       values.push(data.isActive);
+    }
+    if (data.productKey !== undefined || data.product_key !== undefined) {
+      fields.push(`product_key = $${paramIndex++}`);
+      values.push(data.productKey ?? data.product_key ?? null);
     }
 
     if (fields.length === 0) {
@@ -264,13 +290,14 @@ class TIWaterProductModel {
     }
     if (filters.search) {
       whereClause += ` AND (
-        name ILIKE $${paramIndex} OR 
+        name ILIKE $${paramIndex} OR
         description ILIKE $${paramIndex} OR
-        code ILIKE $${paramIndex}
+        code ILIKE $${paramIndex} OR
+        product_key ILIKE $${paramIndex}
       )`;
       const searchTerm = `%${filters.search}%`;
-      values.push(searchTerm, searchTerm, searchTerm);
-      paramIndex += 3;
+      values.push(searchTerm, searchTerm, searchTerm, searchTerm);
+      paramIndex += 4;
     }
 
     const countQuery = `SELECT COUNT(*) as count FROM tiwater_products WHERE ${whereClause}`;
@@ -294,6 +321,7 @@ class TIWaterProductModel {
 
     return {
       id: row.id,
+      productKey: row.product_key,
       code: row.code,
       name: row.name,
       description: row.description,

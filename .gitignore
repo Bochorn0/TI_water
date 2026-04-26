@@ -24,3 +24,10 @@ dist-ssr
 *.sw?
 
 .env
+
+# Catalog product images (regenerated from PDF; not committed — see
+# src/assets/catalogs/valvulas/WHERE_IMAGES.txt)
+public/catalogs/products/
+
+# Zip bundle for manual upload to Blob / build agent (see npm run catalog:prepare-images)
+catalog-export/
