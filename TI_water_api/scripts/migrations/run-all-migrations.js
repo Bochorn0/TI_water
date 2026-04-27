@@ -5,7 +5,8 @@
  * names are skipped. Uses pg_advisory_lock so concurrent app instances do not
  * race on the same migration.
  *
- * Env: POSTGRES_* (POSTGRES_SSL=true for Azure).
+ * Env: POSTGRES_* and optional POSTGRES_TIWATER_* (same as API / postgres-tiwater.config).
+ * Database/host/user/password resolution must match postgres-tiwater.config.js.
  * Usage (from TI_water_api): node scripts/migrations/run-all-migrations.js
  */
 
@@ -14,6 +15,7 @@ import { readFileSync } from 'fs';
 import { basename, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import pkg from 'pg';
+import { resolvePostgresForMigrations } from '../../src/config/resolve-postgres-for-migrations.js';
 
 const { Client } = pkg;
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -46,16 +48,29 @@ CREATE INDEX IF NOT EXISTS idx_tiwater_migrations_executed_at ON tiwater_migrati
 `;
 
 async function main() {
-  const client = new Client({
-    host: process.env.POSTGRES_HOST || 'localhost',
-    port: process.env.POSTGRES_PORT
-      ? parseInt(process.env.POSTGRES_PORT, 10)
-      : 5432,
-    database: process.env.POSTGRES_DB || 'postgres',
-    user: process.env.POSTGRES_USER,
-    password: process.env.POSTGRES_PASSWORD,
-    ssl: process.env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: false } : false,
-  });
+  const conn = resolvePostgresForMigrations();
+
+  if (
+    process.env.POSTGRES_DB &&
+    process.env.POSTGRES_TIWATER_DB &&
+    process.env.POSTGRES_DB !== process.env.POSTGRES_TIWATER_DB
+  ) {
+    console.error(
+      '[migrations] POSTGRES_DB and POSTGRES_TIWATER_DB differ. This API expects one logical database for auth + tiwater. Using database:',
+      conn.database,
+      '(same rule as postgres-tiwater.config.js). Fix Application Settings so both vars match or unset one.',
+    );
+  }
+
+  console.log(
+    '[migrations] connecting host=%s database=%s port=%s ssl=%s',
+    conn.host,
+    conn.database,
+    conn.port,
+    Boolean(conn.ssl),
+  );
+
+  const client = new Client(conn);
 
   try {
     await client.connect();

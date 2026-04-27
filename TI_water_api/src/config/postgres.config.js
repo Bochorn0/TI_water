@@ -6,9 +6,16 @@ const { Pool } = pkg;
 
 const isAzure = process.env.POSTGRES_SSL === 'true';
 const defaultDb = isAzure ? 'postgres' : 'tiwater_timeseries';
-const db = process.env.POSTGRES_DB || defaultDb;
+// Match postgres-tiwater precedence so auth + migrations target the same DB when only TI_* is set
+const db =
+  process.env.POSTGRES_TIWATER_DB ||
+  process.env.POSTGRES_DB ||
+  defaultDb;
 
-const pgHost = process.env.POSTGRES_HOST || 'localhost';
+const pgHost =
+  process.env.POSTGRES_TIWATER_HOST ||
+  process.env.POSTGRES_HOST ||
+  'localhost';
 
 if (
   process.env.WEBSITE_SITE_NAME &&
@@ -21,14 +28,25 @@ if (
 
 const pool = new Pool({
   host: pgHost,
-  port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+  port: parseInt(
+    process.env.POSTGRES_TIWATER_PORT || process.env.POSTGRES_PORT || '5432',
+    10,
+  ),
   database: db,
-  user: process.env.POSTGRES_USER || os.userInfo().username,
-  password: process.env.POSTGRES_PASSWORD,
+  user:
+    process.env.POSTGRES_TIWATER_USER ||
+    process.env.POSTGRES_USER ||
+    os.userInfo().username,
+  password:
+    process.env.POSTGRES_TIWATER_PASSWORD || process.env.POSTGRES_PASSWORD,
   max: parseInt(process.env.POSTGRES_MAX_CONNECTIONS || '20', 10),
   idleTimeoutMillis: parseInt(process.env.POSTGRES_IDLE_TIMEOUT || '30000', 10),
   connectionTimeoutMillis: parseInt(process.env.POSTGRES_CONNECTION_TIMEOUT || '10000', 10),
-  ssl: process.env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  ssl:
+    process.env.POSTGRES_TIWATER_SSL === 'true' ||
+    process.env.POSTGRES_SSL === 'true'
+      ? { rejectUnauthorized: false }
+      : false,
 });
 
 pool.on('error', (err) => {
