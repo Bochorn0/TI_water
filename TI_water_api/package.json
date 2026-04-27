@@ -15,6 +15,7 @@
     "import:catalog": "node scripts/import-catalog-from-json.mjs",
     "import:all:valvulas": "node scripts/import-all-valvulas-json.mjs",
     "catalog:seed:sync": "node scripts/sync-catalog-seed-from-tiwater.mjs",
+    "migration:generate:valvulas-catalog-seed": "node scripts/generate-026-valvulas-catalog-seed-sql.mjs",
     "next:product-key": "node scripts/next-catalog-product-key.mjs"
   },
   "dependencies": {

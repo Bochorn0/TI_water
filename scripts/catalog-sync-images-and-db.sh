@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Extract valvulas images from Catalogo_valvulas.pdf, then import every valvulas/*/product.json into Postgres.
+# Extract valvulas images from Catalogo_valvulas.pdf, then run API migrations (includes 026 catalog seed SQL).
 # Run from your machine (or Cloud Shell with Node 20 + poppler + repo checkout).
 #
 #   cd TI_water
@@ -27,8 +27,6 @@ if [[ ! -f package-lock.json ]]; then
   exit 1
 fi
 npm ci --omit=dev
-node scripts/sync-catalog-seed-from-tiwater.mjs
 node scripts/migrations/run-all-migrations.js
-npm run import:all:valvulas
 
 echo "Done. If prod static site is missing new PNGs, redeploy the TI Water frontend or upload public/catalogs/products to your host."
