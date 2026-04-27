@@ -9,13 +9,16 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import TIWaterProductModel from '../src/models/postgres/tiwater-product.model.js';
 import { buildPayload, resolveProductKey } from './import-catalog-helpers.mjs';
+import { resolveValvulasCatalogDir } from './resolve-valvulas-catalog-dir.mjs';
 
 const __d = dirname(fileURLToPath(import.meta.url));
-const V = join(__d, '../../src/assets/catalogs/valvulas');
 
 function collectProductJsons() {
-  if (!existsSync(V)) {
-    console.error('Missing', V);
+  let V;
+  try {
+    V = resolveValvulasCatalogDir(__d);
+  } catch (e) {
+    console.error(e.message);
     process.exit(1);
   }
   const paths = [];

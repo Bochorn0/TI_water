@@ -1,0 +1,257 @@
+{
+  "schemaVersion": 2,
+  "pattern": "CATALOGO_VALVULAS__AQT-56",
+  "catalog": {
+    "productType": "valvulas",
+    "typeShortCode": "VAL",
+    "dbCategory": "valvulas_sistemas"
+  },
+  "productKey": "TIWVAL001",
+  "source": {
+    "file": "Catalogo_valvulas.pdf",
+    "pdfPage": 5,
+    "catalogSectionFooter": "VÁLVULAS | 7"
+  },
+  "product": {
+    "code": "AQT-56",
+    "name": "VÁLVULA AQT-56 (RESIDENCIAL / COMERCIAL LIGERO)",
+    "subtitle": "AQUATROL™ SERIE AQT-56 - Filtro/Suavizador Control por Tiempo y Flujo",
+    "description": "Las válvulas Aquatrol AQT-56 ofrecen un cuerpo rígido de Noryl para una mayor resistencia y durabilidad. El control por tiempo y flujo de la AQT-56 tiene un consumo energético muy bajo y en su interior podrá encontrar sellos y pistones de alta precisión. Con una amplia gama de pistones, así como partes internas como DLFC, BLFC e inyectores, la AQT-56 puede ser personalizada para cumplir todas sus espectativas para el acondicionamiento de agua.",
+    "highlights": [
+      "Diseño de cuerpo en Noryl de alta durabilidad no corrosivo",
+      "Para aplicaciones residenciales y comerciales ligeras",
+      "Conexión en 3/4\" y 1\"",
+      "Control por tiempo de 12 días",
+      "Control por flujo de hasta 2100 galones"
+    ],
+    "technicalComparisonTable": {
+      "title": "TABLA DE COMPARACIÓN DE VÁLVULAS AQUATROL™ AQT-56 (RESIDENCIAL / COMERCIAL LIGERO)",
+      "columns": [
+        "AQT-56FT",
+        "AQT-56ST",
+        "AQT-56SM",
+        "AQT-56SE-FT",
+        "AQT-56SE-ST",
+        "AQT-56SE-SM"
+      ],
+      "rows": [
+        {
+          "attribute": "Conexión",
+          "values": [
+            "3/4\" - 1\"",
+            "3/4\" - 1\"",
+            "3/4\" - 1\"",
+            "3/4\" - 1\"",
+            "3/4\" - 1\"",
+            "3/4\" - 1\""
+          ]
+        },
+        {
+          "attribute": "Servicio",
+          "values": [
+            "20 gpm",
+            "20 gpm",
+            "20 gpm",
+            "20 gpm",
+            "20 gpm",
+            "20 gpm"
+          ]
+        },
+        {
+          "attribute": "Servicio Máx.",
+          "values": [
+            "26 gpm",
+            "26 gpm",
+            "26 gpm",
+            "26 gpm",
+            "26 gpm",
+            "26 gpm"
+          ]
+        },
+        {
+          "attribute": "Retrolavado",
+          "values": [
+            "7 gpm",
+            "7 gpm",
+            "7 gpm",
+            "7 gpm",
+            "7 gpm",
+            "7 gpm"
+          ]
+        },
+        {
+          "attribute": "Drenaje",
+          "values": [
+            "1/2\"",
+            "1/2\"",
+            "1/2\"",
+            "1/2\"",
+            "1/2\"",
+            "1/2\""
+          ]
+        },
+        {
+          "attribute": "Distribuidor",
+          "values": [
+            "1.05\" OD",
+            "1.05\" OD",
+            "1.05\" OD",
+            "1.05\" OD",
+            "1.05\" OD",
+            "1.05\" OD"
+          ]
+        },
+        {
+          "attribute": "Base",
+          "values": [
+            "2.5\" 8 NPSM",
+            "2.5\" 8 NPSM",
+            "2.5\" 8 NPSM",
+            "2.5\" 8 NPSM",
+            "2.5\" 8 NPSM",
+            "2.5\" 8 NPSM"
+          ]
+        },
+        {
+          "attribute": "Material",
+          "values": [
+            "Noryl",
+            "Noryl",
+            "Noryl",
+            "Noryl",
+            "Noryl",
+            "Noryl"
+          ]
+        },
+        {
+          "attribute": "Línea Salmuera",
+          "values": [
+            "no",
+            "3/8\"",
+            "3/8\"",
+            "no",
+            "3/8\"",
+            "3/8\""
+          ]
+        },
+        {
+          "attribute": "Control Mecánico",
+          "values": [
+            "Tiempo",
+            "Tiempo",
+            "Flujo",
+            "no",
+            "no",
+            "no"
+          ]
+        },
+        {
+          "attribute": "Control Digital",
+          "values": [
+            "no",
+            "no",
+            "no",
+            "SE Tiempo",
+            "SE Tiempo",
+            "SE Flujo"
+          ]
+        },
+        {
+          "attribute": "Reg. Inmediata",
+          "values": [
+            "no",
+            "no",
+            "no",
+            "si, ajustable",
+            "si, ajustable",
+            "si, ajustable"
+          ]
+        },
+        {
+          "attribute": "Reg. Retardada",
+          "values": [
+            "12:00 am",
+            "2:00 am",
+            "2:00 am",
+            "si, ajustable",
+            "si, ajustable",
+            "si, ajustable"
+          ]
+        },
+        {
+          "attribute": "Ciclos",
+          "values": [
+            "3",
+            "5",
+            "5",
+            "3",
+            "5",
+            "5"
+          ]
+        },
+        {
+          "attribute": "Ciclos Ajustables",
+          "values": [
+            "no",
+            "Refill Salmuera",
+            "Refill Salmuera",
+            "Todos",
+            "Todos",
+            "Todos"
+          ]
+        },
+        {
+          "attribute": "Medidor",
+          "values": [
+            "no",
+            "no",
+            "2100 gal",
+            "no",
+            "turbina",
+            "turbina"
+          ]
+        },
+        {
+          "attribute": "Filtros (Tamaño Tanque)",
+          "values": [
+            "6\" - 12\"",
+            "no",
+            "no",
+            "6\" - 12\"",
+            "no",
+            "no"
+          ]
+        },
+        {
+          "attribute": "Suavizadores (Tamaño Tanque)",
+          "values": [
+            "no",
+            "6\" - 13\"",
+            "6\" - 13\"",
+            "no",
+            "6\" - 13\"",
+            "6\" - 13\""
+          ]
+        }
+      ],
+      "legalNote": "Nota: Importante. Las características que se muestran en la tabla son valores dados por el fabricante. Son valores calculados bajo condiciones específicas e ideales. Para uso de agua con condiciones especiales, verificar primero con su distribuidor para más detalles. estos datos de manera informativa, por lo que no se hace responsable por la mala selección, uso y mantenimiento de la válvula y/o sus componentes internos. Es responsabilidad del cliente y/o instalador verificar que cumplan con sus necesidades de ingeniería.\n\nNota: Los tamaños de tanques sugeridos están basados en un factor de filtración de 10 gpm/ft 2."
+    }
+  },
+  "assets": {
+    "extraction": {
+      "tool": "process-valvulas-catalog.mjs (poppler)"
+    },
+    "publicPathPrefix": "/catalogs/products",
+    "files": {
+      "main": "TIWVAL001_main.png",
+      "thumbnails": [
+        "TIWVAL001_thumb-01.png",
+        "TIWVAL001_thumb-02.png",
+        "TIWVAL001_thumb-03.png",
+        "TIWVAL001_thumb-04.png",
+        "TIWVAL001_thumb-05.png",
+        "TIWVAL001_thumb-06.png"
+      ]
+    }
+  }
+}

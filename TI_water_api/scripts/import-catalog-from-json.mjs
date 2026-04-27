@@ -4,15 +4,34 @@
  * productKey: TIW + 3-letter type + 3 digits (e.g. TIWVAL001). Images: /catalogs/products/{key}_main.png
  */
 import 'dotenv/config';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import TIWaterProductModel from '../src/models/postgres/tiwater-product.model.js';
 import { buildPayload, resolveProductKey } from './import-catalog-helpers.mjs';
+import { resolveValvulasCatalogDir } from './resolve-valvulas-catalog-dir.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const defaultJson = path.join(__dirname, '../../src/assets/catalogs/valvulas/AQT-56/product.json');
-const jsonPath = process.argv[2] || defaultJson;
+
+function defaultSingleImportPath() {
+  const root = resolveValvulasCatalogDir(__dirname);
+  const preferred = path.join(root, 'AQT-56', 'product.json');
+  if (existsSync(preferred)) return preferred;
+  for (const name of readdirSync(root, { withFileTypes: true })) {
+    if (!name.isDirectory() || name.name.startsWith('.')) continue;
+    const p = path.join(root, name.name, 'product.json');
+    if (existsSync(p)) return p;
+  }
+  throw new Error(`No product.json under default catalog dir ${root}`);
+}
+
+let jsonPath;
+try {
+  jsonPath = process.argv[2] || defaultSingleImportPath();
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
+}
 
 async function main() {
   if (!existsSync(jsonPath)) {

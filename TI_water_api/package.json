@@ -14,6 +14,7 @@
     "seed:admin": "node scripts/seed-admin-user.js",
     "import:catalog": "node scripts/import-catalog-from-json.mjs",
     "import:all:valvulas": "node scripts/import-all-valvulas-json.mjs",
+    "catalog:seed:sync": "node scripts/sync-catalog-seed-from-tiwater.mjs",
     "next:product-key": "node scripts/next-catalog-product-key.mjs"
   },
   "dependencies": {

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 2,
+  "pattern": "CATALOGO_VALVULAS__AQT_285",
+  "catalog": {
+    "productType": "valvulas",
+    "typeShortCode": "VAL",
+    "dbCategory": "valvulas_sistemas"
+  },
+  "productKey": "TIWVAL003",
+  "source": {
+    "file": "Catalogo_valvulas.pdf",
+    "pdfPage": 7
+  },
+  "product": {
+    "code": "AQT-285",
+    "name": "VÁLVULA AQT-285 (COMERCIAL)",
+    "subtitle": "SERIE AQT-285 - Filtro/Suavizador",
+    "description": "Las válvulas Aquatrol AQT-285 ofrecen un cuerpo rígido de bronce con mayor resistencia a altas presiones. Ideal para aplicaciones comerciales ligeras. La base roscada se separa fácilmente con sólo 2 tornillos para que el mantenimiento de la válvula sea más sencillo.",
+    "highlights": [
+      "",
+      "Control mecánico ajustable de 5 ciclos",
+      "Control por tiempo de 12 días",
+      "Control por flujo de hasta 10,625 gal",
+      "Control digital NX con tiempos ajustables",
+      "Regeneración retardada con control NX",
+      "Retrolavado para unidades de hasta 36” suavizador"
+    ],
+    "technicalComparisonTable": {
+      "title": "Extraído del PDF (revisar y convertir a tabla estructurada si aplica)",
+      "columns": null,
+      "rows": [],
+      "rawExtraction": "TABLA DE COMPARACIÓN DE VÁLVULAS AQUATROL™ AQT-285 (COMERCIAL)\nNúmero de Parte\n\nAQT-285FT\n\nAQT-285ST\n\nAQT-285S-NX\n\nAQT-285F-NX\n\nConexión\n\n1.5”\n\n1.5”\n\n1.5”\n\n1.5”\n\nServicio\n\n51 gpm\n\n51 gpm\n\n51 gpm\n\n51 gpm\n\nServicio Máx.\n\n66 gpm\n\n66 gpm\n\n66 gpm\n\n66 gpm\n\nRetrolavado\n\n49 gpm\n\n49 gpm\n\n49 gpm\n\n49 gpm\n\nPresión de Trabajo\n\n20 - 125 psi\n\n20 - 125 psi\n\n20 - 125 psi\n\n20 - 125 psi\n\nDrenaje\n\n1”\n\n1”\n\n1”\n\n1”\n\nDistribuidor\n\n1.96\" OD\n\n1.96\" OD\n\n1.96\" OD\n\n1.96\" OD\n\nBase\n\n4” - 8 UN\n\n4” - 8 UN\n\n4” - 8 UN\n\n4” - 8 UN\n\nMaterial\n\nBronce\n\nBronce\n\nBronce\n\nBronce\n\nLínea Salmuera\n\nno\n\n1/2”\n\n1/2”\n\nno\n\nControl Mecánico\n\nTiempo\n\nTiempo\n\nno\n\nno\nAQT-NX Tiempo y Flujo\n\nControl Digital\n\nno\n\nno\n\nAQT-NX Tiempo y Flujo\n\nReg. Inmediata\n\nno\n\nno\n\nAjustable\n\nAjustable\n\nReg. Retardada\n\n12:00 am\n\n2:00 am\n\nAjustable\n\nAjustable\n\nCiclos\n\n5\n\n5\n\n5\n\n5\n\nCiclos Ajustables\n\nTodos\n\nTodos\n\nTodos\n\nTodos\nOpcional\n\nMedidor\n\nno\n\nno\n\nTurbina hasta\n999,999,999 gal\n\nHW\n\nFiltro\n\nSi\n\nSi\n\nFiltro\n\nNH\n\nno\n\nOpcional\n\nOpcional\n\nno\n\nFiltros (Tamaño Tanque)\n\n14” - 30”\n\nno\n\nno\n\n14” - 30”\n\nSuavizadores\n(Tamaño Tanque)\n\nno\n\n14” - 36”\n\n14” - 36”\n\nno\n\n* HW - Bypass Agua Dura. NH - Bypass Agua Dura\nNota: Importante. Las características que se muestran en la tabla son valores dados por el fabricante. Son valores calculados bajo condiciones específicas e ideales. Para uso de agua con condiciones especiales, verificar primero con su\ndistribuidor para más detalles. Proporciona estos datos de manera informativa, por lo que no se hace responsable por la mala selección, uso y mantenimiento de la válvula y/o sus componentes internos. Es responsabilidad del cliente y/o instalador\nverificar que cumplan con sus necesidades de ingeniería.\nNota: Los tamaños de tanques sugeridos están basados en un factor de filtración de 10 gpm/ft 2.\n\nVÁLVULAS | 9"
+    }
+  },
+  "assets": {
+    "extraction": {
+      "tool": "process-valvulas-catalog.mjs (poppler)"
+    },
+    "publicPathPrefix": "/catalogs/products",
+    "files": {
+      "main": "TIWVAL003_main.png",
+      "thumbnails": [
+        "TIWVAL003_thumb-01.png",
+        "TIWVAL003_thumb-02.png",
+        "TIWVAL003_thumb-03.png",
+        "TIWVAL003_thumb-04.png",
+        "TIWVAL003_thumb-05.png",
+        "TIWVAL003_thumb-06.png"
+      ]
+    }
+  }
+}
