@@ -18,14 +18,24 @@ if (!existsSync(seedRoot)) {
   process.exit(1);
 }
 
-function toJsonbSql(obj) {
-  const j = JSON.stringify(obj);
-  return `'${j.replace(/\\/g, '\\\\').replace(/'/g, "''")}'::jsonb`;
+/** Delimited string for SQL: $tag$...$tag$ — tag extended if payload contains delimiter. */
+function dollarSql(payload, tagBase) {
+  let tag = String(tagBase).replace(/[^a-zA-Z0-9_]/g, '_') || 't';
+  for (;;) {
+    const d = '$' + tag + '$';
+    if (!payload.includes(d)) return d + payload + d;
+    tag += 'x';
+  }
 }
 
-function toTextSql(s) {
+function toTextSql(s, tagBase) {
   if (s == null) return 'NULL';
-  return `'${String(s).replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
+  return dollarSql(String(s), tagBase);
+}
+
+function toJsonbSql(obj, tagBase) {
+  const j = JSON.stringify(obj);
+  return dollarSql(j, tagBase) + '::jsonb';
 }
 
 const dirs = readdirSync(seedRoot, { withFileTypes: true })
@@ -34,24 +44,27 @@ const dirs = readdirSync(seedRoot, { withFileTypes: true })
   .sort();
 
 const rows = [];
+let idx = 0;
 for (const dir of dirs) {
   const p = join(seedRoot, dir, 'product.json');
   if (!existsSync(p)) continue;
   const data = JSON.parse(readFileSync(p, 'utf8'));
   const pl = buildPayload(data);
+  const t = `v026_${idx}`;
   rows.push({
-    product_key: toTextSql(pl.productKey),
-    code: toTextSql(pl.code),
-    name: toTextSql(pl.name),
-    description: toTextSql(pl.description),
-    category: toTextSql(pl.category),
+    product_key: toTextSql(pl.productKey, `${t}_pk`),
+    code: toTextSql(pl.code, `${t}_code`),
+    name: toTextSql(pl.name, `${t}_name`),
+    description: toTextSql(pl.description, `${t}_desc`),
+    category: toTextSql(pl.category, `${t}_cat`),
     price: pl.price == null ? 'NULL' : Number(pl.price),
-    specifications: toJsonbSql(pl.specifications),
-    images: toJsonbSql(pl.images),
-    catalog_source: toTextSql(pl.catalogSource),
+    specifications: toJsonbSql(pl.specifications, `${t}_spec`),
+    images: toJsonbSql(pl.images, `${t}_img`),
+    catalog_source: toTextSql(pl.catalogSource, `${t}_src`),
     page_number: pl.pageNumber == null ? 'NULL' : String(parseInt(pl.pageNumber, 10)),
     is_active: pl.isActive === false ? 'false' : 'true',
   });
+  idx += 1;
 }
 
 if (rows.length === 0) {

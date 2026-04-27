@@ -70,6 +70,11 @@ async function main() {
     conn.port,
     Boolean(conn.ssl),
   );
+  console.log(
+    '[migrations] queue: %d files (last=%s)',
+    MIGRATIONS.length,
+    basename(MIGRATIONS[MIGRATIONS.length - 1]),
+  );
 
   const client = new Client(conn);
 
