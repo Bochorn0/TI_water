@@ -13,6 +13,7 @@ export const getProducts = async (req, res) => {
       search, 
       isActive,
       catalogSource,
+      sort,
       limit = 100, 
       offset = 0 
     } = req.query;
@@ -30,10 +31,19 @@ export const getProducts = async (req, res) => {
     if (isActive !== undefined) filters.isActive = isActive === 'true';
     if (catalogSource) filters.catalogSource = catalogSource;
 
+    const SORT_MAP = {
+      name: 'name ASC, id ASC',
+      code: 'code ASC, id ASC',
+      productKey: 'product_key ASC NULLS LAST, id ASC',
+      newest: 'id DESC',
+      oldest: 'id ASC',
+    };
+    const safeOrderBy = SORT_MAP[sort] || 'name ASC, id ASC';
+
     const options = {
       limit: parseInt(limit),
       offset: parseInt(offset),
-      orderBy: 'created_at DESC'
+      orderBy: safeOrderBy
     };
 
     const products = await TIWaterProductModel.find(filters, options);

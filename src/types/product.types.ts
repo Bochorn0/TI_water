@@ -34,6 +34,7 @@ export interface ProductFilters {
   search?: string;
   isActive?: boolean;
   catalogSource?: string;
+  sort?: 'name' | 'code' | 'productKey' | 'newest' | 'oldest' | string;
   limit?: number;
   offset?: number;
 }

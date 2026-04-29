@@ -78,17 +78,6 @@ function keySpecs(p: Product): { label: string; value: string }[] {
 
 type SortKey = 'name' | 'code' | 'productKey';
 
-function sortProducts(list: Product[], key: SortKey): Product[] {
-  const a = [...list];
-  a.sort((x, y) => {
-    if (key === 'code') return String(x.code).localeCompare(String(y.code), 'es', { numeric: true });
-    if (key === 'productKey')
-      return String(x.productKey || x.code).localeCompare(String(y.productKey || y.code), 'es', { numeric: true });
-    return String(x.name).localeCompare(String(y.name), 'es');
-  });
-  return a;
-}
-
 export function PublicCatalogPage() {
   const { addProduct, itemCount, totalUnits } = useQuoteDraft();
   const [visibleProducts, setVisibleProducts] = useState<Product[]>([]);
@@ -104,7 +93,7 @@ export function PublicCatalogPage() {
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [detail, setDetail] = useState<Product | null>(null);
   const [page, setPage] = useState(1);
-  const pageSize = 18;
+  const [pageSize, setPageSize] = useState(20);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -129,8 +118,9 @@ export function PublicCatalogPage() {
         isActive: true,
         search: debouncedSearch || undefined,
         category: selectedCategories.length > 0 ? selectedCategories.join(',') : undefined,
+        sort,
       });
-      setVisibleProducts(sortProducts(res.products || [], sort));
+      setVisibleProducts(res.products || []);
       setTotalProducts(res.pagination?.total ?? 0);
     } catch (e) {
       setError(getApiErrorMessage(e, 'No se pudo cargar el catálogo.'));
@@ -257,6 +247,21 @@ export function PublicCatalogPage() {
                         <MenuItem value="name">Nombre</MenuItem>
                         <MenuItem value="code">Código</MenuItem>
                         <MenuItem value="productKey">Clave de catálogo</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <FormControl size="small" sx={{ minWidth: 140 }}>
+                      <InputLabel>Por página</InputLabel>
+                      <Select
+                        value={String(pageSize)}
+                        label="Por página"
+                        onChange={(e) => {
+                          setPageSize(parseInt(e.target.value, 10));
+                          setPage(1);
+                        }}
+                      >
+                        <MenuItem value="20">20</MenuItem>
+                        <MenuItem value="50">50</MenuItem>
+                        <MenuItem value="100">100</MenuItem>
                       </Select>
                     </FormControl>
                     <ToggleButtonGroup
