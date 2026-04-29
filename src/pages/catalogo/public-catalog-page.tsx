@@ -93,7 +93,7 @@ export function PublicCatalogPage() {
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [detail, setDetail] = useState<Product | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -259,6 +259,7 @@ export function PublicCatalogPage() {
                           setPage(1);
                         }}
                       >
+                        <MenuItem value="10">10</MenuItem>
                         <MenuItem value="20">20</MenuItem>
                         <MenuItem value="50">50</MenuItem>
                         <MenuItem value="100">100</MenuItem>
@@ -375,53 +376,100 @@ function ListProductRow({
   const spec = (p.specifications as CatalogProductSpecifications) || {};
   const rows = keySpecs(p);
   const img = p.images && p.images[0];
+  const visibleRows = rows.slice(0, 3);
 
   return (
     <Paper
       variant="outlined"
       sx={{
-        p: 2,
+        p: 1.25,
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', sm: '120px 1fr auto' },
-        gap: 2,
-        alignItems: 'start',
+        gridTemplateColumns: { xs: '1fr', sm: '108px minmax(0, 1fr) 176px' },
+        gap: 1.25,
+        alignItems: 'stretch',
+        borderRadius: 1.5,
+        minHeight: { sm: 152 },
+        borderColor: 'grey.300',
       }}
     >
       <Box
         sx={{
-          width: { sm: 120 },
-          minHeight: 100,
-          bgcolor: 'grey.100',
+          width: { xs: 108, sm: 108 },
+          height: { xs: 108, sm: 108 },
+          bgcolor: '#fff',
           borderRadius: 1,
           overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          mx: 'auto',
         }}
       >
         {img ? (
-          <Box component="img" src={img} alt={p.name} sx={{ width: '100%', height: 100, objectFit: 'contain' }} />
+          <Box
+            component="img"
+            src={img}
+            alt={p.name}
+            sx={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              width: 'auto',
+              height: 'auto',
+              display: 'block',
+            }}
+          />
         ) : (
           <Typography variant="caption" color="text.secondary" px={1}>
             {p.code}
           </Typography>
         )}
       </Box>
-      <Box>
-        {p.productKey && (
-          <Chip size="small" label={p.productKey} sx={{ mr: 0.5, mb: 0.5 }} color="primary" variant="outlined" />
-        )}
-        <Typography variant="h6" component="h2" sx={{ fontSize: '1.1rem', fontWeight: 700 }}>
+      <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <Typography
+          variant="h6"
+          component="h2"
+          sx={{
+            fontSize: '1.45rem',
+            fontWeight: 700,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            color: 'text.primary',
+            lineHeight: 1.25,
+            mb: 0.25,
+          }}
+        >
           {p.name}
         </Typography>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
+        {p.productKey && (
+          <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 600, mb: 0.25 }}>
+            {p.productKey}
+          </Typography>
+        )}
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          gutterBottom
+          sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', mb: 0.25 }}
+        >
           Código: {p.code}
           {spec.source?.file ? ` · ${spec.source.file}` : ''}
         </Typography>
-        <Box component="ul" sx={{ m: 0, pl: 2.5, mb: 0 }}>
-          {rows.map((r) => (
+        <Box component="ul" sx={{ m: 0, pl: 2.5, mb: 0, minHeight: 56 }}>
+          {visibleRows.map((r) => (
             <li key={r.value}>
-              <Typography variant="body2" color="text.secondary" component="span">
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                component="span"
+                sx={{
+                  display: 'inline-block',
+                  maxWidth: '100%',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 {r.label !== '—' && (
                   <Box component="span" fontWeight={600} color="text.primary" sx={{ mr: 0.5 }}>
                     {r.label}:
@@ -433,22 +481,39 @@ function ListProductRow({
           ))}
         </Box>
         {p.price != null && p.price > 0 && (
-          <Typography variant="body2" sx={{ mt: 0.5 }} fontWeight={600}>
+          <Typography variant="body2" sx={{ mt: 'auto' }} fontWeight={600}>
             Lista: ${Number(p.price).toFixed(2)} MXN
           </Typography>
         )}
       </Box>
-      <Stack spacing={1} alignItems="stretch" sx={{ minWidth: { sm: 200 } }}>
+      <Stack spacing={1} alignItems="stretch" justifyContent="center" sx={{ minWidth: 0 }}>
         <Button
           variant="contained"
           startIcon={<AddShoppingCartIcon />}
           onClick={onAdd}
           size="small"
-          sx={{ textTransform: 'none' }}
+          sx={{
+            textTransform: 'none',
+            minHeight: 42,
+            fontWeight: 700,
+            borderRadius: 1.25,
+            width: '100%',
+          }}
         >
           Añadir a cotización
         </Button>
-        <Button variant="outlined" size="small" onClick={onDetail} sx={{ textTransform: 'none' }}>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={onDetail}
+          sx={{
+            textTransform: 'none',
+            minHeight: 38,
+            fontWeight: 700,
+            borderRadius: 1.25,
+            width: '100%',
+          }}
+        >
           Ficha técnica
         </Button>
       </Stack>
@@ -467,11 +532,14 @@ function GridProductCard({
 }) {
   const img = p.images && p.images[0];
   return (
-    <Paper variant="outlined" sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Paper
+      variant="outlined"
+      sx={{ p: 2, minHeight: 320, height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 1.5, borderColor: 'grey.300' }}
+    >
       <Box
         sx={{
           height: 160,
-          bgcolor: 'grey.100',
+          bgcolor: '#fff',
           borderRadius: 1,
           mb: 1.5,
           display: 'flex',
@@ -481,18 +549,46 @@ function GridProductCard({
         }}
       >
         {img ? (
-          <Box component="img" src={img} alt={p.name} sx={{ maxWidth: '100%', maxHeight: 160, objectFit: 'contain' }} />
+          <Box
+            component="img"
+            src={img}
+            alt={p.name}
+            sx={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              width: 'auto',
+              height: 'auto',
+              display: 'block',
+            }}
+          />
         ) : (
           <Typography color="text.secondary" variant="caption">
             {p.code}
           </Typography>
         )}
       </Box>
-      <Typography variant="subtitle1" fontWeight={700} sx={{ flex: 1 }}>
+      <Typography
+        variant="subtitle1"
+        fontWeight={700}
+        sx={{
+          flex: 1,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          lineHeight: 1.25,
+        }}
+      >
         {p.name}
       </Typography>
+      {p.productKey && (
+        <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 600 }}>
+          {p.productKey}
+        </Typography>
+      )}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        {p.code} {p.productKey ? `· ${p.productKey}` : ''}
+        {p.code}
       </Typography>
       <Stack direction="row" gap={1} mt="auto" flexWrap="wrap">
         <Button size="small" variant="contained" startIcon={<AddShoppingCartIcon />} onClick={onAdd} sx={{ textTransform: 'none' }}>
