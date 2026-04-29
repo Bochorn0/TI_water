@@ -114,21 +114,39 @@ function parseArgs() {
 
 function main() {
   const { noZip, only } = parseArgs();
+  const strict = process.env.CATALOG_IMAGES_STRICT === '1';
   if (!existsSync(PDF)) {
-    console.error('Missing PDF:', PDF);
-    process.exit(1);
+    const msg = `Missing PDF: ${PDF}`;
+    if (strict) {
+      console.error(msg);
+      process.exit(1);
+    }
+    console.warn(`[catalog-images] skip: ${msg}`);
+    console.warn('[catalog-images] set CATALOG_IMAGES_STRICT=1 to fail when assets are missing.');
+    return;
   }
   if (!havePoppler()) {
-    console.error('Install Poppler:  brew install poppler');
-    process.exit(1);
+    const msg = 'Install Poppler: brew install poppler';
+    if (strict) {
+      console.error(msg);
+      process.exit(1);
+    }
+    console.warn(`[catalog-images] skip: ${msg}`);
+    console.warn('[catalog-images] set CATALOG_IMAGES_STRICT=1 to fail when dependencies are missing.');
+    return;
   }
   const jobs = loadJobs(only);
   if (jobs.length === 0) {
-    console.error(
-      'No jobs. Add BATCH-MANIFEST.json or valvulas/<code>/product.json with productKey + source.pdfPage',
-      only ? `(no match for --only ${only})` : '',
-    );
-    process.exit(1);
+    const msg = `No jobs. Add BATCH-MANIFEST.json or valvulas/<code>/product.json with productKey + source.pdfPage ${
+      only ? `(no match for --only ${only})` : ''
+    }`;
+    if (strict) {
+      console.error(msg);
+      process.exit(1);
+    }
+    console.warn(`[catalog-images] skip: ${msg}`);
+    console.warn('[catalog-images] set CATALOG_IMAGES_STRICT=1 to fail when no image jobs are available.');
+    return;
   }
 
   mkdirSync(PUBLIC, { recursive: true });
