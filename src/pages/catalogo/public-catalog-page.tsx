@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -22,6 +22,7 @@ import {
   InputLabel,
   MenuItem,
   Paper,
+  Pagination,
   Select,
   Stack,
   TextField,
@@ -90,61 +91,57 @@ function sortProducts(list: Product[], key: SortKey): Product[] {
 
 export function PublicCatalogPage() {
   const { addProduct, itemCount, totalUnits } = useQuoteDraft();
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [visibleProducts, setVisibleProducts] = useState<Product[]>([]);
+  const [totalProducts, setTotalProducts] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<Record<string, boolean>>(
     () => Object.fromEntries(CATEGORY_DEFS.map((c) => [c.value, false])),
   );
   const [sort, setSort] = useState<SortKey>('name');
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [detail, setDetail] = useState<Product | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 18;
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, sort]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await productService.getAll({ limit: 500, isActive: true });
-      setAllProducts(res.products || []);
+      const selectedCategories = Object.entries(categoryFilter)
+        .filter(([, on]) => on)
+        .map(([k]) => k);
+      const offset = (page - 1) * pageSize;
+      const res = await productService.getAll({
+        limit: pageSize,
+        offset,
+        isActive: true,
+        search: debouncedSearch || undefined,
+        category: selectedCategories.length > 0 ? selectedCategories.join(',') : undefined,
+      });
+      setVisibleProducts(sortProducts(res.products || [], sort));
+      setTotalProducts(res.pagination?.total ?? 0);
     } catch (e) {
       setError(getApiErrorMessage(e, 'No se pudo cargar el catálogo.'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [categoryFilter, page, debouncedSearch, sort]);
 
   useEffect(() => {
     void load();
   }, [load]);
-
-  const anyCategorySelected = useMemo(
-    () => Object.values(categoryFilter).some(Boolean),
-    [categoryFilter],
-  );
-
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let list = allProducts;
-    if (anyCategorySelected) {
-      const allowed = new Set(
-        Object.entries(categoryFilter)
-          .filter(([, on]) => on)
-          .map(([k]) => k),
-      );
-      list = list.filter((p) => (p.category ? allowed.has(String(p.category)) : false));
-    }
-    if (q) {
-      list = list.filter((p) => {
-        const blob = [p.name, p.code, p.productKey, p.description]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase();
-        return blob.includes(q);
-      });
-    }
-    return sortProducts(list, sort);
-  }, [allProducts, search, categoryFilter, anyCategorySelected, sort]);
 
   const handleAdd = (p: Product) => {
     addProduct(p);
@@ -154,6 +151,7 @@ export function PublicCatalogPage() {
   const clearFilters = () => {
     setSearch('');
     setCategoryFilter(Object.fromEntries(CATEGORY_DEFS.map((c) => [c.value, false])));
+    setPage(1);
   };
 
   return (
@@ -225,7 +223,10 @@ export function PublicCatalogPage() {
                           <Checkbox
                             size="small"
                             checked={!!categoryFilter[c.value]}
-                            onChange={(e) => setCategoryFilter((prev) => ({ ...prev, [c.value]: e.target.checked }))}
+                            onChange={(e) => {
+                              setCategoryFilter((prev) => ({ ...prev, [c.value]: e.target.checked }));
+                              setPage(1);
+                            }}
                           />
                         }
                         label={<Typography variant="body2">{c.label}</Typography>}
@@ -241,7 +242,9 @@ export function PublicCatalogPage() {
               <Grid item xs={12} md={9}>
                 <Stack direction="row" flexWrap="wrap" alignItems="center" justifyContent="space-between" gap={2} sx={{ mb: 2 }}>
                   <Typography variant="body2" color="text.secondary">
-                    {loading ? 'Cargando…' : `Mostrando ${visible.length} de ${allProducts.length} productos`}
+                    {loading
+                      ? 'Cargando…'
+                      : `Mostrando ${visibleProducts.length} de ${totalProducts} productos`}
                   </Typography>
                   <Stack direction="row" flexWrap="wrap" alignItems="center" gap={1}>
                     <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -278,13 +281,13 @@ export function PublicCatalogPage() {
                   </Box>
                 )}
 
-                {!loading && !error && visible.length === 0 && (
+                {!loading && !error && visibleProducts.length === 0 && (
                   <Alert severity="info">Ningún producto coincide. Pruebe otros filtros o búsqueda.</Alert>
                 )}
 
                 {!loading && view === 'list' && (
                   <Stack spacing={1.5}>
-                    {visible.map((p) => (
+                    {visibleProducts.map((p) => (
                       <ListProductRow
                         key={p.id}
                         product={p}
@@ -297,7 +300,7 @@ export function PublicCatalogPage() {
 
                 {!loading && view === 'grid' && (
                   <Grid container spacing={2}>
-                    {visible.map((p) => (
+                    {visibleProducts.map((p) => (
                       <Grid item xs={12} sm={6} key={p.id}>
                         <GridProductCard
                           product={p}
@@ -307,6 +310,16 @@ export function PublicCatalogPage() {
                       </Grid>
                     ))}
                   </Grid>
+                )}
+                {!loading && totalProducts > pageSize && (
+                  <Stack direction="row" justifyContent="center" sx={{ mt: 3 }}>
+                    <Pagination
+                      color="primary"
+                      page={page}
+                      onChange={(_, v) => setPage(v)}
+                      count={Math.max(1, Math.ceil(totalProducts / pageSize))}
+                    />
+                  </Stack>
                 )}
               </Grid>
             </Grid>

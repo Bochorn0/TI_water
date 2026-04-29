@@ -60,8 +60,16 @@ async function importFile(filePath) {
 async function main() {
   const paths = collectProductJsons();
   console.log('Importing', paths.length, 'JSON files...');
+  const seenCodes = new Set();
   for (const f of paths) {
     try {
+      const data = JSON.parse(readFileSync(f, 'utf8'));
+      const code = String(data?.product?.code || '').trim().toUpperCase();
+      if (code && seenCodes.has(code)) {
+        console.warn('[skip] duplicate code', code, f);
+        continue;
+      }
+      if (code) seenCodes.add(code);
       await importFile(f);
     } catch (e) {
       console.error('FAIL', f, e.message);

@@ -17,6 +17,7 @@
     "re:build": "yarn rm:all && yarn install && yarn build",
     "dev:host": "vite --host",
     "catalog:valvulas": "node scripts/process-valvulas-catalog.mjs",
+    "catalog:others": "node scripts/process-other-catalogs.mjs",
     "catalog:prepare-images": "node scripts/prepare-catalog-images.mjs",
     "catalog:build-images": "node scripts/prepare-catalog-images.mjs --no-zip"
   },

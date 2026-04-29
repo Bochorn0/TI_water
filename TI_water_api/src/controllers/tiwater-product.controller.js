@@ -18,7 +18,14 @@ export const getProducts = async (req, res) => {
     } = req.query;
 
     const filters = {};
-    if (category) filters.category = category;
+    if (category) {
+      const categories = String(category)
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean);
+      if (categories.length > 1) filters.categories = categories;
+      else if (categories.length === 1) filters.category = categories[0];
+    }
     if (search) filters.search = search;
     if (isActive !== undefined) filters.isActive = isActive === 'true';
     if (catalogSource) filters.catalogSource = catalogSource;

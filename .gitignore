@@ -34,3 +34,11 @@ catalog-export/
 
 # Local log dumps (not app config)
 TI_water_api/src/config/logs_api.yaml
+
+# API-side intermediate JSON seed copies (SQL migrations are source of truth)
+TI_water_api/catalog-seed/
+
+# Generated catalog product payloads (source PDFs/SQL migrations are canonical)
+src/assets/catalogs/**/product.json
+src/assets/catalogs/**/BATCH-MANIFEST.json
+src/assets/catalogs/*.pdf

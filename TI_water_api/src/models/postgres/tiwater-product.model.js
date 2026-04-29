@@ -76,7 +76,11 @@ class TIWaterProductModel {
       paramIndex++;
     }
 
-    if (filters.category) {
+    if (Array.isArray(filters.categories) && filters.categories.length > 0) {
+      whereClause += ` AND category = ANY($${paramIndex})`;
+      values.push(filters.categories);
+      paramIndex++;
+    } else if (filters.category) {
       whereClause += ` AND category = $${paramIndex}`;
       values.push(filters.category);
       paramIndex++;
@@ -276,7 +280,10 @@ class TIWaterProductModel {
       whereClause += ` AND code = $${paramIndex++}`;
       values.push(filters.code);
     }
-    if (filters.category) {
+    if (Array.isArray(filters.categories) && filters.categories.length > 0) {
+      whereClause += ` AND category = ANY($${paramIndex++})`;
+      values.push(filters.categories);
+    } else if (filters.category) {
       whereClause += ` AND category = $${paramIndex++}`;
       values.push(filters.category);
     }

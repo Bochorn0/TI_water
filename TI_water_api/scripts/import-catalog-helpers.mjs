@@ -26,18 +26,45 @@ export function buildSpecifications(data) {
   };
 }
 
-export function resolveImageUrls(data) {
-  const prefix = (data.assets?.publicPathPrefix || '').replace(/\/$/, '');
-  if (!prefix) return [];
-  const base = `${SITE_ORIGIN}${prefix}/`;
-  const f = data.assets?.files;
-  if (!f) return [];
-  const list = [];
-  if (f.main) list.push(base + f.main.replace(/^\//, ''));
-  for (const t of f.thumbnails || []) {
-    if (t) list.push(base + t.replace(/^\//, ''));
+function normalizeDataUri(s) {
+  if (typeof s !== 'string') return null;
+  const v = s.trim();
+  if (!v) return null;
+  if (v.startsWith('data:image/')) return v;
+  // Allow raw base64 payloads from extraction tools.
+  if (/^[A-Za-z0-9+/=\r\n]+$/.test(v)) {
+    return `data:image/png;base64,${v.replace(/\s+/g, '')}`;
   }
-  return list;
+  return null;
+}
+
+/**
+ * Production shape: images must contain only one image (prefer base64 data URI).
+ * Priority:
+ * 1) data.images[0] if it's already a data URI
+ * 2) data.image / data.imageBase64 / data.assets.base64Main (data URI or raw base64)
+ * 3) legacy assets.files.main URL fallback
+ */
+export function resolvePrimaryImage(data) {
+  const fromImagesArray = Array.isArray(data.images) ? normalizeDataUri(data.images[0]) : null;
+  if (fromImagesArray) return [fromImagesArray];
+
+  const explicit =
+    normalizeDataUri(data.image) ||
+    normalizeDataUri(data.imageBase64) ||
+    normalizeDataUri(data.assets?.base64Main) ||
+    normalizeDataUri(data.assets?.mainBase64) ||
+    normalizeDataUri(data.assets?.mainDataUri);
+  if (explicit) return [explicit];
+
+  // Backward compatibility with URL-based catalog docs.
+  const prefix = (data.assets?.publicPathPrefix || '').replace(/\/$/, '');
+  const main = data.assets?.files?.main;
+  if (prefix && main) {
+    return [`${SITE_ORIGIN}${prefix}/${String(main).replace(/^\//, '')}`];
+  }
+
+  return [];
 }
 
 export function resolveProductKey(data) {
@@ -65,7 +92,7 @@ export function buildPayload(data) {
     category: categoryFromJson(data),
     price: null,
     specifications: buildSpecifications({ ...data, productKey }),
-    images: resolveImageUrls({ ...data, productKey }),
+    images: resolvePrimaryImage({ ...data, productKey }),
     catalogSource: data.source?.file || null,
     pageNumber: data.source?.pdfPage ?? data.source?.page ?? null,
     isActive: true,

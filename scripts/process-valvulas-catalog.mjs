@@ -12,6 +12,9 @@ import {
   havePoppler,
   pdftoTextPage,
   extractProductCodeFromText,
+  extractFallbackCodeFromText,
+  extractTitleFromText,
+  hasTechnicalData,
   buildProductNarrative,
   extractPageImagesToTemp,
   copyProductImagesToPublic,
@@ -40,12 +43,18 @@ function buildAssetsDoc(productKey) {
   };
 }
 
+function asPngDataUri(filePath) {
+  if (!filePath) return null;
+  const b64 = readFileSync(filePath).toString('base64');
+  return `data:image/png;base64,${b64}`;
+}
+
 function parseArgs() {
   const a = process.argv.slice(2);
-  let from = 5;
-  let to = 10;
+  let from = 4;
+  let to = 55;
   let startSeq = 1;
-  let mergeA56 = true;
+  let mergeA56 = false;
   for (let i = 0; i < a.length; i++) {
     if (a[i] === '--from' && a[i + 1]) {
       from = parseInt(a[i + 1], 10);
@@ -56,8 +65,8 @@ function parseArgs() {
     } else if (a[i] === '--start-seq' && a[i + 1]) {
       startSeq = parseInt(a[i + 1], 10);
       i++;
-    } else if (a[i] === '--no-merge-a56') {
-      mergeA56 = false;
+    } else if (a[i] === '--merge-a56') {
+      mergeA56 = true;
     }
   }
   return { from, to, startSeq, mergeA56 };
@@ -76,24 +85,26 @@ function main() {
   const { from, to, startSeq, mergeA56 } = parseArgs();
   const manifest = { generatedAt: new Date().toISOString(), pdf: 'Catalogo_valvulas.pdf', items: [] };
   let seq = startSeq;
+  const seenCodes = new Set();
 
   for (let page = from; page <= to; page++) {
     const text = pdftoTextPage(PDF, page);
-    const nameLine = text
-      .split('\n')
-      .map((l) => l.trim())
-      .find((l) => l.length > 0) || '';
+    const nameLine = extractTitleFromText(text);
     const productKey = keyFor(seq);
     const aqt56Path = join(V, 'AQT-56', 'product.json');
 
-    if (page === 5 && mergeA56 && existsSync(aqt56Path)) {
+    if (page === 5 && mergeA56 && existsSync(aqt56Path) && !seenCodes.has('AQT-56')) {
       const ex = JSON.parse(readFileSync(aqt56Path, 'utf8'));
       ex.productKey = productKey;
       ex.source = { ...ex.source, file: 'Catalogo_valvulas.pdf', pdfPage: page };
-      ex.assets = buildAssetsDoc(productKey);
+      const img = extractPageImagesToTemp(PDF, page);
+      ex.assets = {
+        ...buildAssetsDoc(productKey),
+        base64Main: asPngDataUri(img.main),
+      };
+      ex.images = ex.assets.base64Main ? [ex.assets.base64Main] : [];
       ex.pattern = ex.pattern || 'CATALOGO_VALVULAS__AQT-56';
       writeFileSync(aqt56Path, JSON.stringify(ex, null, 2), 'utf8');
-      const img = extractPageImagesToTemp(PDF, page);
       if (img.main) copyProductImagesToPublic(productKey, img, PUBLIC);
       else console.warn('[warn] no rasters for page 5');
       console.log('[merge] updated', aqt56Path, productKey);
@@ -102,14 +113,24 @@ function main() {
       continue;
     }
 
-    const realCode = extractProductCodeFromText(text);
-    if (!realCode) {
-      console.warn(`[skip] page ${page}: no AQT- code, line1=${nameLine.substring(0, 50)}`);
+    const technical = hasTechnicalData(text);
+    if (!technical) {
+      console.warn(`[skip] page ${page}: no technical block`);
       continue;
     }
+    const parsedCode = extractProductCodeFromText(text);
+    const realCode = parsedCode || extractFallbackCodeFromText(text, page);
+    if (seenCodes.has(realCode)) {
+      console.warn(`[skip] page ${page}: duplicate code ${realCode}`);
+      continue;
+    }
+    seenCodes.add(realCode);
     const narr = buildProductNarrative(text);
     const outDir = join(V, realCode);
     mkdirSync(outDir, { recursive: true });
+
+    const img = extractPageImagesToTemp(PDF, page);
+    const mainDataUri = asPngDataUri(img.main);
 
     const doc = {
       schemaVersion: 2,
@@ -126,17 +147,21 @@ function main() {
         subtitle: narr.subtitle || undefined,
         description: narr.description,
         highlights: narr.highlights,
-        technicalComparisonTable: {
-          title: 'Extraído del PDF (revisar y convertir a tabla estructurada si aplica)',
-          columns: null,
-          rows: [],
-          rawExtraction: narr.technicalExtraction || text,
-        },
+        technicalComparisonTable:
+          narr.technicalComparisonTable || {
+            title: 'Extraído del PDF (revisar y convertir a tabla estructurada si aplica)',
+            columns: null,
+            rows: [],
+            rawExtraction: narr.technicalExtraction || text,
+          },
       },
-      assets: buildAssetsDoc(productKey),
+      assets: {
+        ...buildAssetsDoc(productKey),
+        base64Main: mainDataUri,
+      },
+      images: mainDataUri ? [mainDataUri] : [],
     };
 
-    const img = extractPageImagesToTemp(PDF, page);
     if (img.main) {
       copyProductImagesToPublic(productKey, img, PUBLIC);
     } else {
