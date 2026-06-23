@@ -17,10 +17,11 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "src/*": ["./src/*"]
+      "src/*": ["./src/*"],
+      "@tejaban/*": ["./el-tejaban/src/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "el-tejaban/src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
 

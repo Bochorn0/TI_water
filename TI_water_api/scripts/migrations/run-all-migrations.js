@@ -38,6 +38,9 @@ const MIGRATIONS = [
   'scripts/migrations/025_add_product_key_to_tiwater_products.sql',
   'scripts/migrations/026_seed_tiwater_valvulas_catalog.sql',
   'scripts/migrations/027_seed_tiwater_other_catalogs.sql',
+  'scripts/migrations/028_create_tejaban_tables.sql',
+  'scripts/migrations/029_seed_tejaban_menu.sql',
+  'scripts/migrations/030_add_el_tejaban_permissions.sql',
 ];
 
 const ENSURE_LEDGER_SQL = `

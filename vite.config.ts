@@ -1,16 +1,14 @@
 import fs from 'fs';
 import path from 'path';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 
-/** Dev server (`npm run dev`). */
+const ROOT = process.cwd();
+const TEJABAN_SRC = path.join(ROOT, 'el-tejaban/src');
+
 const PORT = 3040;
-/**
- * Preview of production build (`npm run start` / `vite preview`).
- * Keep different from PORT so you never have preview + dev fighting for one port
- * (which causes 404s for `/@vite/client` and `/@react-refresh`).
- */
 const PREVIEW_PORT = 3041;
+
 const HTTPS_KEY = process.env.VITE_HTTPS_KEY;
 const HTTPS_CERT = process.env.VITE_HTTPS_CERT;
 const HTTPS_CONFIG =
@@ -21,21 +19,19 @@ const HTTPS_CONFIG =
       }
     : undefined;
 
-/** SPA fallback: serve index.html for client routes (e.g. /cotizaciones) when opening directly or refreshing */
-function spaFallback() {
+function spaFallback(): Plugin {
   return {
     name: 'spa-fallback',
-    configureServer(server: any) {
-      server.middlewares.use((req: any, res: any, next: () => void) => {
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
         const u = req.url || '';
-        // Vite HMR, /@id, /node_modules, etc. — no dot; must not be forced to /index.html
         if (u.startsWith('/api') || u.startsWith('/@') || u.includes('.')) return next();
         req.url = '/index.html';
         next();
       });
     },
-    configurePreviewServer(server: any) {
-      server.middlewares.use((req: any, res: any, next: () => void) => {
+    configurePreviewServer(server) {
+      server.middlewares.use((req, _res, next) => {
         const u = req.url || '';
         if (u.startsWith('/api') || u.startsWith('/@') || u.includes('.')) return next();
         req.url = '/index.html';
@@ -48,18 +44,22 @@ function spaFallback() {
 export default defineConfig({
   plugins: [react(), spaFallback()],
   resolve: {
+    dedupe: ['react', 'react-dom', '@emotion/react', '@emotion/styled', '@mui/material'],
     alias: [
-      {
-        find: /^~(.+)/,
-        replacement: path.join(process.cwd(), 'node_modules/$1'),
-      },
-      {
-        find: /^src(.+)/,
-        replacement: path.join(process.cwd(), 'src/$1'),
-      },
+      { find: /^~(.+)/, replacement: path.join(ROOT, 'node_modules/$1') },
+      { find: /^src(.+)/, replacement: path.join(ROOT, 'src$1') },
+      { find: '@tejaban', replacement: TEJABAN_SRC },
     ],
   },
-  server: { port: PORT, strictPort: true, host: true, https: HTTPS_CONFIG },
+  server: {
+    port: PORT,
+    strictPort: true,
+    host: '0.0.0.0',
+    https: HTTPS_CONFIG,
+    hmr: {
+      // Allow HMR when opening via LAN IP (e.g. tablet at 192.168.x.x:3040)
+      clientPort: PORT,
+    },
+  },
   preview: { port: PREVIEW_PORT, strictPort: true, host: true },
 });
-

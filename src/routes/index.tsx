@@ -21,6 +21,8 @@ import { CatalogRouteGuard } from 'src/components/admin/catalog-route-guard';
 import { UsersRouteGuard } from 'src/components/admin/users-route-guard';
 import { QuotesRouteGuard } from 'src/components/admin/quotes-route-guard';
 import { SecretLinksRouteGuard } from 'src/components/admin/secret-links-route-guard';
+import { TejabanShell } from 'src/tejaban/tejaban-module';
+import { TejabanRouteChildren } from '@tejaban/routes';
 
 export function Router() {
   return (
@@ -33,6 +35,9 @@ export function Router() {
       <Route path="/cotizaciones" element={<CotizacionesPage />} />
       <Route path="/e/:slug" element={<SecretLinkPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/el-tejaban" element={<TejabanShell />}>
+        {TejabanRouteChildren()}
+      </Route>
 
       <Route
         path="/admin"

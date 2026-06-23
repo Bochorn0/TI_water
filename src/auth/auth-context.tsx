@@ -45,6 +45,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Refresh user from API so role/permissions match DB (e.g. after migrations), not old localStorage.
   useEffect(() => {
     if (!token) return;
+    // El Tejaban mock login stores this token — skip API refresh (would 401 spam in dev)
+    if (token === 'mock-jwt') return;
+
     v1Client
       .get<{ user: AuthUser }>('/auth/me')
       .then((r) => {
@@ -53,7 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(AUTH_USER_KEY, JSON.stringify(u));
       })
       .catch(() => {
-        // keep cached user; token may be invalid — login flow will clear
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_USER_KEY);
+        setToken(null);
+        setUser(null);
       });
   }, [token]);
 

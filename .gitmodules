@@ -1,0 +1,3 @@
+[submodule "el-tejaban"]
+	path = el-tejaban
+	url = git@github.com:Bochorn0/El_tejaban.git

@@ -11,6 +11,7 @@ import roleRoutes from './routes/role.routes.js';
 import tiwaterQuoteRoutes from './routes/tiwater-quote.routes.js';
 import tiwaterProductRoutes from './routes/tiwater-product.routes.js';
 import tiwaterSecretLinkRoutes from './routes/tiwater-secret-link.routes.js';
+import tejabanRoutes from './routes/tejaban.routes.js';
 import { authenticate, requirePermission } from './middlewares/auth.middleware.js';
 
 const app = express();
@@ -58,6 +59,7 @@ app.use('/api/v1.0/roles', authenticate, requirePermission('/usuarios'), roleRou
 app.use('/api/v1.0/tiwater/products', tiwaterProductRoutes);
 app.use('/api/v1.0/tiwater/quotes', tiwaterQuoteRoutes);
 app.use('/api/v1.0/tiwater/secret-links', tiwaterSecretLinkRoutes);
+app.use('/api/v1.0/tejaban', tejabanRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err.stack);

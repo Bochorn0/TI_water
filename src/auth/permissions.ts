@@ -42,3 +42,16 @@ export function canManageSecretLinks(user: AuthUser | null): boolean {
   );
 }
 
+/** El Tejaban POS at tiwater.mx/el-tejaban */
+export function canAccessElTejaban(user: AuthUser | null): boolean {
+  if (!user?.role) return false;
+  if (isAdmin(user)) return true;
+  return permSet(user).has('/el-tejaban');
+}
+
+export function canManageElTejabanAdmin(user: AuthUser | null): boolean {
+  if (!user?.role) return false;
+  if (isAdmin(user)) return true;
+  return permSet(user).has('/el-tejaban-admin');
+}
+
