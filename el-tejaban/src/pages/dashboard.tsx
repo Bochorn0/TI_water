@@ -361,6 +361,7 @@ function SalesDetailDialog({
             <Row label="Transferencia" value={formatCurrency(summary.transferTotal)} />
             <Row label="Uber Eats" value={formatCurrency(summary.uberEatsTotal)} />
             <Row label="DiDi Food" value={formatCurrency(summary.didiTotal)} />
+            <Row label="Rappi" value={formatCurrency(summary.rapiTotal)} />
             <Divider />
             <Row label="Órdenes hoy" value={String(summary.orderCount)} />
             <Row label="Cerradas" value={String(summary.closedOrderCount)} />

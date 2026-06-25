@@ -10,6 +10,7 @@ const ORDER_TYPE_LABELS: Record<OrderType, string> = {
   mesa: 'Mesa',
   uber_eats: 'Uber Eats',
   didi: 'DiDi Food',
+  rapi: 'Rappi',
 };
 
 function escapeHtml(value: string): string {

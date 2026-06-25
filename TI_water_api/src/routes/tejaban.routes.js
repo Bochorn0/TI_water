@@ -15,6 +15,7 @@ import {
   listPayments,
   createPayment,
   dailySummary,
+  salesReport,
 } from '../controllers/tejaban.controller.js';
 
 const router = Router();
@@ -38,5 +39,6 @@ router.delete('/orders/:id/items/:itemId', ...posAccess, removeOrderItem);
 router.get('/payments', ...adminAccess, listPayments);
 router.post('/orders/:id/payments', ...posAccess, createPayment);
 router.get('/reports/daily', ...adminAccess, dailySummary);
+router.get('/reports/sales', ...adminAccess, salesReport);
 
 export default router;

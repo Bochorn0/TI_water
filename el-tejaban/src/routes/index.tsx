@@ -19,6 +19,7 @@ const OrdersListPage = lazy(() => import('@tejaban/pages/orders/orders-list'));
 const OrderDetailPage = lazy(() => import('@tejaban/pages/orders/order-detail'));
 const PaymentsPage = lazy(() => import('@tejaban/pages/payments/payments-list'));
 const MenuAdminPage = lazy(() => import('@tejaban/pages/menu-admin'));
+const SalesReportPage = lazy(() => import('@tejaban/pages/reports/sales-report'));
 
 function PageLoader() {
   return (
@@ -91,6 +92,14 @@ export function TejabanRouteChildren() {
               element={
                 <PermissionGuard permission={PERMISSION_ADMIN}>
                   {withSuspense(<MenuAdminPage />)}
+                </PermissionGuard>
+              }
+            />
+            <Route
+              path="reports"
+              element={
+                <PermissionGuard permission={PERMISSION_ADMIN}>
+                  {withSuspense(<SalesReportPage />)}
                 </PermissionGuard>
               }
             />

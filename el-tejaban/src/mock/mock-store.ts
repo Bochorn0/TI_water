@@ -7,7 +7,10 @@
 import { MOCK_MENU_ITEMS } from './data';
 import type { MenuItem } from '@tejaban/types/menu.types';
 import type { Order, OrderItem, OrderStatus } from '@tejaban/types/order.types';
-import type { Payment, PaymentMethod } from '@tejaban/types/payment.types';
+import type { Payment, PaymentMethod, SalesReport, SalesReportFilters } from '@tejaban/types/payment.types';
+import { ALL_PAYMENT_METHODS } from '@tejaban/types/payment.types';
+import type { OrderType } from '@tejaban/types/order.types';
+import { ALL_ORDER_TYPES } from '@tejaban/types/order.types';
 
 const MOCK_DELAY_MS = 350;
 
@@ -339,6 +342,58 @@ export const mockStore = {
       transferTotal: dayPayments.filter((p) => p.method === 'transferencia').reduce((s, p) => s + p.amount, 0),
       uberEatsTotal: dayPayments.filter((p) => p.method === 'uber_eats').reduce((s, p) => s + p.amount, 0),
       didiTotal: dayPayments.filter((p) => p.method === 'didi').reduce((s, p) => s + p.amount, 0),
+      rapiTotal: dayPayments.filter((p) => p.method === 'rapi').reduce((s, p) => s + p.amount, 0),
+    });
+  },
+
+  async getSalesReport(filters: SalesReportFilters): Promise<SalesReport> {
+    const from = new Date(`${filters.fromDate}T00:00:00`);
+    const to = new Date(`${filters.toDate}T23:59:59.999`);
+
+    let result = payments.filter((p) => {
+      const paidAt = new Date(p.paidAt);
+      return paidAt >= from && paidAt <= to;
+    });
+
+    if (filters.methods?.length) {
+      result = result.filter((p) => filters.methods!.includes(p.method));
+    }
+
+    const orderMap = new Map(orders.map((o) => [o.id, o]));
+    const rows = result.map((p) => ({
+      ...p,
+      orderType: orderMap.get(p.orderId)?.orderType,
+    }));
+
+    const filteredRows =
+      filters.orderTypes?.length
+        ? rows.filter((p) => p.orderType && filters.orderTypes!.includes(p.orderType))
+        : rows;
+
+    const byMethod = Object.fromEntries(ALL_PAYMENT_METHODS.map((m) => [m, 0])) as Record<
+      PaymentMethod,
+      number
+    >;
+    const byOrderType = Object.fromEntries(ALL_ORDER_TYPES.map((t) => [t, 0])) as Record<
+      OrderType,
+      number
+    >;
+
+    for (const payment of filteredRows) {
+      byMethod[payment.method] += payment.amount;
+      if (payment.orderType) {
+        byOrderType[payment.orderType] += payment.amount;
+      }
+    }
+
+    return mockDelay({
+      fromDate: filters.fromDate,
+      toDate: filters.toDate,
+      paymentCount: filteredRows.length,
+      totalSales: filteredRows.reduce((s, p) => s + p.amount, 0),
+      byMethod,
+      byOrderType,
+      payments: filteredRows.sort((a, b) => b.paidAt.localeCompare(a.paidAt)),
     });
   },
 

@@ -17,7 +17,11 @@ import CreditCardIcon from '@mui/icons-material/CreditCard';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import DeliveryDiningIcon from '@mui/icons-material/DeliveryDining';
 import type { PaymentMethod } from '@tejaban/types/payment.types';
-import { PAYMENT_METHOD_LABELS } from '@tejaban/types/payment.types';
+import {
+  ALL_PAYMENT_METHODS,
+  DELIVERY_PAYMENT_METHODS,
+  PAYMENT_METHOD_LABELS,
+} from '@tejaban/types/payment.types';
 import { formatCurrency } from '@tejaban/utils/format';
 
 type Props = {
@@ -28,13 +32,7 @@ type Props = {
   onConfirm: (payload: { method: PaymentMethod; amount: number; terminalTicketRef?: string }) => Promise<void>;
 };
 
-const METHODS: PaymentMethod[] = [
-  'efectivo',
-  'tarjeta',
-  'transferencia',
-  'uber_eats',
-  'didi',
-];
+const METHODS: PaymentMethod[] = ALL_PAYMENT_METHODS;
 
 export function PaymentDialog({ open, orderNumber, total, onClose, onConfirm }: Props) {
   const [method, setMethod] = useState<PaymentMethod>('efectivo');
@@ -43,7 +41,7 @@ export function PaymentDialog({ open, orderNumber, total, onClose, onConfirm }: 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const needsRef = method === 'tarjeta' || method === 'uber_eats' || method === 'didi';
+  const needsRef = method === 'tarjeta' || DELIVERY_PAYMENT_METHODS.includes(method);
 
   const handleConfirm = async () => {
     setError('');
@@ -107,7 +105,7 @@ export function PaymentDialog({ open, orderNumber, total, onClose, onConfirm }: 
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {m === 'efectivo' && <PaymentsIcon fontSize="small" />}
                     {m === 'tarjeta' && <CreditCardIcon fontSize="small" />}
-                    {(m === 'uber_eats' || m === 'didi') && <DeliveryDiningIcon fontSize="small" />}
+                    {DELIVERY_PAYMENT_METHODS.includes(m) && <DeliveryDiningIcon fontSize="small" />}
                     {PAYMENT_METHOD_LABELS[m]}
                   </Box>
                 }
@@ -140,13 +138,13 @@ export function PaymentDialog({ open, orderNumber, total, onClose, onConfirm }: 
           />
         )}
 
-        {(method === 'uber_eats' || method === 'didi') && (
+        {DELIVERY_PAYMENT_METHODS.includes(method) && (
           <TextField
             label="Ref. pedido plataforma (opcional)"
             fullWidth
             value={terminalRef}
             onChange={(e) => setTerminalRef(e.target.value)}
-            placeholder={method === 'uber_eats' ? 'Ej. #A4F2 Uber Eats' : 'Ej. pedido DiDi'}
+            placeholder={`Ej. pedido ${PAYMENT_METHOD_LABELS[method]}`}
             helperText="ID del pedido en la app de delivery"
           />
         )}

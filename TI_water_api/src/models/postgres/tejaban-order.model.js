@@ -278,20 +278,47 @@ export class TejabanOrderModel {
 }
 
 export class TejabanPaymentModel {
-  static async findAll({ today = false } = {}) {
+  static async findAll({
+    today = false,
+    fromDate,
+    toDate,
+    methods,
+    orderTypes,
+  } = {}) {
     let sql = `
-      SELECT p.*, o.order_number, u.nombre AS recorded_by_name
+      SELECT p.*, o.order_number, o.order_type, u.nombre AS recorded_by_name
       FROM tejaban_payments p
       JOIN tejaban_ordenes o ON o.id = p.orden_id
       LEFT JOIN users u ON u.id = p.recorded_by
       WHERE 1=1`;
+    const values = [];
+    let i = 1;
+
     if (today) sql += ` AND p.paid_at::date = CURRENT_DATE`;
+    if (fromDate) {
+      sql += ` AND p.paid_at::date >= $${i++}`;
+      values.push(fromDate);
+    }
+    if (toDate) {
+      sql += ` AND p.paid_at::date <= $${i++}`;
+      values.push(toDate);
+    }
+    if (methods?.length) {
+      sql += ` AND p.method = ANY($${i++})`;
+      values.push(methods);
+    }
+    if (orderTypes?.length) {
+      sql += ` AND o.order_type = ANY($${i++})`;
+      values.push(orderTypes);
+    }
+
     sql += ` ORDER BY p.paid_at DESC`;
-    const result = await query(sql);
+    const result = await query(sql, values);
     return result.rows.map((row) => ({
       id: row.id,
       orderId: row.orden_id,
       orderNumber: row.order_number,
+      orderType: row.order_type,
       method: row.method,
       amount: parseFloat(row.amount),
       terminalTicketRef: row.terminal_ticket_ref,

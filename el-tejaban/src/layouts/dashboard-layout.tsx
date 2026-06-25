@@ -19,6 +19,7 @@ import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useAuth } from '@tejaban/auth/auth-context';
 import { filterNavByPermissions, roleLabel, displayName } from '@tejaban/auth/permissions';
@@ -40,6 +41,7 @@ const ALL_NAV_ITEMS: Array<{
   { label: 'POS', value: tejabanPath('/pos'), icon: <PointOfSaleIcon />, permission: PERMISSION_POS },
   { label: 'Órdenes', value: tejabanPath('/orders'), icon: <ReceiptLongIcon />, permission: PERMISSION_POS },
   { label: 'Pagos', value: tejabanPath('/payments'), icon: <PaymentsIcon />, permission: PERMISSION_ADMIN },
+  { label: 'Reportes', value: tejabanPath('/reports'), icon: <AssessmentIcon />, permission: PERMISSION_ADMIN },
   { label: 'Menú', value: tejabanPath('/menu'), icon: <RestaurantMenuIcon />, permission: PERMISSION_ADMIN },
 ];
 

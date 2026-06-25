@@ -38,13 +38,14 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionPath> = {
   '/orders': PERMISSION_POS,
   '/payments': PERMISSION_ADMIN,
   '/menu': PERMISSION_ADMIN,
+  '/reports': PERMISSION_ADMIN,
 };
 
 export function getRoutePermission(pathname: string): PermissionPath | null {
   const path = tejabanRelativePath(pathname);
   if (path === '/') return PERMISSION_POS;
   if (path.startsWith('/orders') || path.startsWith('/pos')) return PERMISSION_POS;
-  if (path.startsWith('/payments') || path.startsWith('/menu')) return PERMISSION_ADMIN;
+  if (path.startsWith('/payments') || path.startsWith('/menu') || path.startsWith('/reports')) return PERMISSION_ADMIN;
   return null;
 }
 

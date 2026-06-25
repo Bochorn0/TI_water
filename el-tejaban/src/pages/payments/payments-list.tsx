@@ -11,7 +11,7 @@ import {
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import { paymentService } from '@tejaban/services/payment.service';
 import type { Payment, PaymentMethod } from '@tejaban/types/payment.types';
-import { PAYMENT_METHOD_LABELS } from '@tejaban/types/payment.types';
+import { DELIVERY_PAYMENT_METHODS, PAYMENT_METHOD_LABELS } from '@tejaban/types/payment.types';
 import { formatCurrency, formatDateTime } from '@tejaban/utils/format';
 
 export default function PaymentsPage() {
@@ -70,7 +70,7 @@ export default function PaymentsPage() {
                   color={
                     payment.method === 'tarjeta'
                       ? 'error'
-                      : payment.method === 'uber_eats' || payment.method === 'didi'
+                      : DELIVERY_PAYMENT_METHODS.includes(payment.method)
                         ? 'secondary'
                         : 'default'
                   }

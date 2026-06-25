@@ -18,10 +18,10 @@ import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import type { OrderType } from '@tejaban/types/order.types';
-import { ORDER_TYPE_LABELS } from '@tejaban/types/order.types';
+import { DELIVERY_ORDER_TYPES, ORDER_TYPE_LABELS } from '@tejaban/types/order.types';
 import { formatCurrency } from '@tejaban/utils/format';
 
-const ORDER_TYPES: OrderType[] = ['mostrador', 'mesa', 'uber_eats', 'didi'];
+const ORDER_TYPES: OrderType[] = ['mostrador', 'mesa', ...DELIVERY_ORDER_TYPES];
 
 export type CartLine = {
   menuItemId: number;
@@ -115,14 +115,14 @@ export function OrderCart({
             />
           )}
 
-          {(orderType === 'uber_eats' || orderType === 'didi') && (
+          {DELIVERY_ORDER_TYPES.includes(orderType) && (
             <TextField
               label="Ref. pedido plataforma"
               value={tableLabel}
               onChange={(e) => onTableLabelChange(e.target.value)}
               size="small"
               fullWidth
-              placeholder="Ej. #A4F2 Uber Eats"
+              placeholder={`Ej. pedido ${ORDER_TYPE_LABELS[orderType]}`}
             />
           )}
 

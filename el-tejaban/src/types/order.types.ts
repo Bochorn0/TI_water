@@ -7,7 +7,7 @@ export type OrderStatus =
   | 'cerrada'
   | 'cancelada';
 
-export type OrderType = 'mostrador' | 'mesa' | 'uber_eats' | 'didi';
+export type OrderType = 'mostrador' | 'mesa' | 'uber_eats' | 'didi' | 'rapi';
 
 export interface OrderItem {
   id: number;
@@ -42,7 +42,12 @@ export const ORDER_TYPE_LABELS: Record<OrderType, string> = {
   mesa: 'Mesa',
   uber_eats: 'Uber Eats',
   didi: 'DiDi Food',
+  rapi: 'Rappi',
 };
+
+export const DELIVERY_ORDER_TYPES: OrderType[] = ['uber_eats', 'didi', 'rapi'];
+
+export const ALL_ORDER_TYPES: OrderType[] = ['mostrador', 'mesa', ...DELIVERY_ORDER_TYPES];
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   abierta: 'Abierta',

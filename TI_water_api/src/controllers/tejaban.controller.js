@@ -6,6 +6,39 @@ import {
   TejabanPaymentModel,
 } from '../models/postgres/tejaban-order.model.js';
 
+function parseCsvQuery(value) {
+  if (!value || typeof value !== 'string') return undefined;
+  const items = value.split(',').map((s) => s.trim()).filter(Boolean);
+  return items.length ? items : undefined;
+}
+
+function buildSalesReport(payments, fromDate, toDate) {
+  const methods = ['efectivo', 'tarjeta', 'transferencia', 'uber_eats', 'didi', 'rapi'];
+  const orderTypes = ['mostrador', 'mesa', 'uber_eats', 'didi', 'rapi'];
+
+  const byMethod = Object.fromEntries(methods.map((m) => [m, 0]));
+  const byOrderType = Object.fromEntries(orderTypes.map((t) => [t, 0]));
+
+  for (const payment of payments) {
+    if (byMethod[payment.method] !== undefined) {
+      byMethod[payment.method] += payment.amount;
+    }
+    if (payment.orderType && byOrderType[payment.orderType] !== undefined) {
+      byOrderType[payment.orderType] += payment.amount;
+    }
+  }
+
+  return {
+    fromDate,
+    toDate,
+    paymentCount: payments.length,
+    totalSales: payments.reduce((s, p) => s + p.amount, 0),
+    byMethod,
+    byOrderType,
+    payments,
+  };
+}
+
 export async function listProducts(req, res) {
   try {
     const activeOnly = req.query.active === 'true' || req.query.activeOnly === 'true';
@@ -136,7 +169,13 @@ export async function removeOrderItem(req, res) {
 
 export async function listPayments(req, res) {
   try {
-    const payments = await TejabanPaymentModel.findAll({ today: req.query.today === 'true' });
+    const payments = await TejabanPaymentModel.findAll({
+      today: req.query.today === 'true',
+      fromDate: req.query.from || req.query.fromDate,
+      toDate: req.query.to || req.query.toDate,
+      methods: parseCsvQuery(req.query.methods),
+      orderTypes: parseCsvQuery(req.query.orderTypes),
+    });
     res.json({ payments });
   } catch (e) {
     console.error('[Tejaban] listPayments', e);
@@ -179,9 +218,33 @@ export async function dailySummary(_req, res) {
       transferTotal: sum((p) => p.method === 'transferencia'),
       uberEatsTotal: sum((p) => p.method === 'uber_eats'),
       didiTotal: sum((p) => p.method === 'didi'),
+      rapiTotal: sum((p) => p.method === 'rapi'),
     });
   } catch (e) {
     console.error('[Tejaban] dailySummary', e);
     res.status(500).json({ message: 'Error al obtener resumen' });
+  }
+}
+
+export async function salesReport(req, res) {
+  try {
+    const fromDate = req.query.from || req.query.fromDate;
+    const toDate = req.query.to || req.query.toDate;
+
+    if (!fromDate || !toDate) {
+      return res.status(400).json({ message: 'Parámetros from y to son requeridos (YYYY-MM-DD)' });
+    }
+
+    const payments = await TejabanPaymentModel.findAll({
+      fromDate,
+      toDate,
+      methods: parseCsvQuery(req.query.methods),
+      orderTypes: parseCsvQuery(req.query.orderTypes),
+    });
+
+    res.json(buildSalesReport(payments, fromDate, toDate));
+  } catch (e) {
+    console.error('[Tejaban] salesReport', e);
+    res.status(500).json({ message: 'Error al generar reporte de ventas' });
   }
 }
