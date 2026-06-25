@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -26,11 +26,19 @@ const FILTERS: Array<{ label: string; value: OrderStatus | 'all' | 'active' }> =
   { label: 'Cerrada', value: 'cerrada' },
 ];
 
+const VALID_FILTERS = new Set(FILTERS.map((f) => f.value));
+
 export default function OrdersListPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialFilter = searchParams.get('filter');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]['value']>('active');
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]['value']>(() =>
+    initialFilter && VALID_FILTERS.has(initialFilter as (typeof FILTERS)[number]['value'])
+      ? (initialFilter as (typeof FILTERS)[number]['value'])
+      : 'active',
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -39,6 +47,13 @@ export default function OrdersListPage() {
       .then((data) => setOrders(data))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const q = searchParams.get('filter');
+    if (q && VALID_FILTERS.has(q as (typeof FILTERS)[number]['value'])) {
+      setFilter(q as (typeof FILTERS)[number]['value']);
+    }
+  }, [searchParams]);
 
   const filtered = orders.filter((o) => {
     if (filter === 'all') return true;

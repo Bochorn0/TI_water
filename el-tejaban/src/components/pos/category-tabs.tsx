@@ -1,8 +1,6 @@
 import { Tab, Tabs, useMediaQuery, useTheme } from '@mui/material';
 import type { MenuCategory } from '@tejaban/types/menu.types';
-import { MENU_CATEGORY_LABELS } from '@tejaban/types/menu.types';
-
-const CATEGORIES: MenuCategory[] = ['cahuamanta', 'tacos', 'paquetes', 'bebidas'];
+import { MENU_CATEGORY_LABELS, MENU_CATEGORIES } from '@tejaban/types/menu.types';
 
 type Props = {
   value: MenuCategory;
@@ -31,7 +29,7 @@ export function CategoryTabs({ value, onChange }: Props) {
         },
       }}
     >
-      {CATEGORIES.map((cat) => (
+      {MENU_CATEGORIES.map((cat) => (
         <Tab key={cat} label={MENU_CATEGORY_LABELS[cat]} value={cat} />
       ))}
     </Tabs>

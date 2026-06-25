@@ -24,7 +24,15 @@ export default function PosPage() {
   const [addedFlash, setAddedFlash] = useState(false);
 
   useEffect(() => {
-    menuService.getMenu().then(setMenuItems).finally(() => setLoadingMenu(false));
+    menuService
+      .getMenu()
+      .then(setMenuItems)
+      .catch((e) => {
+        toast.error(
+          e instanceof Error ? e.message : 'No se pudo cargar el menú. Inicia sesión de nuevo.',
+        );
+      })
+      .finally(() => setLoadingMenu(false));
   }, []);
 
   const addItem = useCallback((item: MenuItem) => {

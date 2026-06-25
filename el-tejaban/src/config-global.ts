@@ -1,6 +1,7 @@
 import packageJson from '../../package.json';
 
-export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== 'false';
+/** Opt-in only — local dev uses TI_water_api + PostgreSQL (set VITE_USE_MOCK_API=true to enable). */
+export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === 'true';
 
 const PRODUCTION_API_BASE =
   'https://tiwatermx-api-hgaua5f6bycshrc5.australiaeast-01.azurewebsites.net/api/v1.0';

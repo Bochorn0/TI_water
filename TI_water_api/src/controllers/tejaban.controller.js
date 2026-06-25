@@ -97,6 +97,43 @@ export async function updateOrder(req, res) {
   }
 }
 
+export async function addOrderItem(req, res) {
+  try {
+    const order = await TejabanOrderModel.addOrderItem(Number(req.params.id), req.body);
+    res.json(order);
+  } catch (e) {
+    console.error('[Tejaban] addOrderItem', e);
+    res.status(400).json({ message: e.message || 'Error al agregar producto' });
+  }
+}
+
+export async function updateOrderItem(req, res) {
+  try {
+    const order = await TejabanOrderModel.updateOrderItem(
+      Number(req.params.id),
+      Number(req.params.itemId),
+      req.body,
+    );
+    res.json(order);
+  } catch (e) {
+    console.error('[Tejaban] updateOrderItem', e);
+    res.status(400).json({ message: e.message || 'Error al actualizar línea' });
+  }
+}
+
+export async function removeOrderItem(req, res) {
+  try {
+    const order = await TejabanOrderModel.removeOrderItem(
+      Number(req.params.id),
+      Number(req.params.itemId),
+    );
+    res.json(order);
+  } catch (e) {
+    console.error('[Tejaban] removeOrderItem', e);
+    res.status(400).json({ message: e.message || 'Error al eliminar línea' });
+  }
+}
+
 export async function listPayments(req, res) {
   try {
     const payments = await TejabanPaymentModel.findAll({ today: req.query.today === 'true' });
@@ -140,6 +177,8 @@ export async function dailySummary(_req, res) {
       cashTotal: sum((p) => p.method === 'efectivo'),
       cardTotal: sum((p) => p.method === 'tarjeta'),
       transferTotal: sum((p) => p.method === 'transferencia'),
+      uberEatsTotal: sum((p) => p.method === 'uber_eats'),
+      didiTotal: sum((p) => p.method === 'didi'),
     });
   } catch (e) {
     console.error('[Tejaban] dailySummary', e);

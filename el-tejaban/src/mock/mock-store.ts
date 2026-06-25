@@ -323,16 +323,7 @@ export const mockStore = {
     return mockDelay({ payment, order: orders[orderIdx] });
   },
 
-  async getDailySummary(date?: string): Promise<{
-    date: string;
-    orderCount: number;
-    closedOrderCount: number;
-    openOrderCount: number;
-    totalSales: number;
-    cashTotal: number;
-    cardTotal: number;
-    transferTotal: number;
-  }> {
+  async getDailySummary(date?: string): Promise<import('@tejaban/types/payment.types').DailySummary> {
     const target = date ? new Date(date).toDateString() : new Date().toDateString();
     const dayOrders = orders.filter((o) => new Date(o.createdAt).toDateString() === target);
     const dayPayments = payments.filter((p) => new Date(p.paidAt).toDateString() === target);
@@ -346,6 +337,8 @@ export const mockStore = {
       cashTotal: dayPayments.filter((p) => p.method === 'efectivo').reduce((s, p) => s + p.amount, 0),
       cardTotal: dayPayments.filter((p) => p.method === 'tarjeta').reduce((s, p) => s + p.amount, 0),
       transferTotal: dayPayments.filter((p) => p.method === 'transferencia').reduce((s, p) => s + p.amount, 0),
+      uberEatsTotal: dayPayments.filter((p) => p.method === 'uber_eats').reduce((s, p) => s + p.amount, 0),
+      didiTotal: dayPayments.filter((p) => p.method === 'didi').reduce((s, p) => s + p.amount, 0),
     });
   },
 
@@ -354,7 +347,7 @@ export const mockStore = {
     menuItems = structuredClone(MOCK_MENU_ITEMS);
     orders = structuredClone(seedOrders);
     payments = structuredClone(seedPayments);
-    nextMenuId = 17;
+    nextMenuId = 22;
     nextOrderId = 3;
     nextOrderItemId = 10;
     nextPaymentId = 2;

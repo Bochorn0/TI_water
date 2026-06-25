@@ -9,6 +9,9 @@ import {
   getOrder,
   createOrder,
   updateOrder,
+  addOrderItem,
+  updateOrderItem,
+  removeOrderItem,
   listPayments,
   createPayment,
   dailySummary,
@@ -28,6 +31,9 @@ router.get('/orders', ...posAccess, listOrders);
 router.get('/orders/:id', ...posAccess, getOrder);
 router.post('/orders', ...posAccess, createOrder);
 router.patch('/orders/:id', ...posAccess, updateOrder);
+router.post('/orders/:id/items', ...posAccess, addOrderItem);
+router.patch('/orders/:id/items/:itemId', ...posAccess, updateOrderItem);
+router.delete('/orders/:id/items/:itemId', ...posAccess, removeOrderItem);
 
 router.get('/payments', ...adminAccess, listPayments);
 router.post('/orders/:id/payments', ...posAccess, createPayment);

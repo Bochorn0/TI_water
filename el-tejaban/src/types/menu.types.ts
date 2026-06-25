@@ -4,7 +4,8 @@ export type MenuCategory =
   | 'cahuamanta'
   | 'tacos'
   | 'paquetes'
-  | 'bebidas';
+  | 'bebidas'
+  | 'clamatos';
 
 export interface MenuItem {
   id: number;
@@ -36,9 +37,16 @@ export const MENU_CATEGORY_LABELS: Record<MenuCategory, string> = {
   tacos: 'Tacos & Flautas',
   paquetes: 'Paquetes',
   bebidas: 'Bebidas',
+  clamatos: 'Clamatos',
 };
 
-export const MENU_CATEGORIES: MenuCategory[] = ['cahuamanta', 'tacos', 'paquetes', 'bebidas'];
+export const MENU_CATEGORIES: MenuCategory[] = [
+  'cahuamanta',
+  'tacos',
+  'paquetes',
+  'bebidas',
+  'clamatos',
+];
 
 export function menuItemToFormData(item?: MenuItem | null): MenuItemFormData {
   return {

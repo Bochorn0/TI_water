@@ -8,9 +8,11 @@ import {
   Chip,
   IconButton,
   Toolbar,
+  Tooltip,
   Typography,
   useMediaQuery,
   useTheme,
+  alpha,
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
@@ -24,6 +26,9 @@ import { CONFIG } from '@tejaban/config-global';
 import { tejabanPath, tejabanRelativePath } from '@tejaban/paths';
 import type { PermissionPath } from '@tejaban/types/auth.types';
 import { PERMISSION_ADMIN, PERMISSION_POS } from '@tejaban/types/auth.types';
+import { desktopNavMediaQuery } from '@tejaban/layout/breakpoints';
+
+const RAIL_WIDTH = 64;
 
 const ALL_NAV_ITEMS: Array<{
   label: string;
@@ -40,7 +45,7 @@ const ALL_NAV_ITEMS: Array<{
 
 export function DashboardLayout({ children }: { children?: React.ReactNode }) {
   const theme = useTheme();
-  const isLandscape = useMediaQuery('(orientation: landscape)');
+  const isDesktopNav = useMediaQuery(desktopNavMediaQuery);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -58,8 +63,6 @@ export function DashboardLayout({ children }: { children?: React.ReactNode }) {
     });
     return match?.value ?? false;
   }, [location.pathname, navItems]);
-
-  const hideBottomNav = tejabanRelativePath(location.pathname).startsWith('/orders/') && isLandscape;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh', bgcolor: 'background.default' }}>
@@ -115,22 +118,71 @@ export function DashboardLayout({ children }: { children?: React.ReactNode }) {
         </Toolbar>
       </AppBar>
 
-      <Box
-        component="main"
-        sx={{
-          flex: 1,
-          overflow: 'auto',
-          pb: hideBottomNav
-            ? 2
-            : { xs: 'calc(88px + env(safe-area-inset-bottom, 0px))', sm: 'calc(80px + env(safe-area-inset-bottom, 0px))' },
-          px: { xs: 1.5, sm: 2, md: 3 },
-          py: { xs: 1.5, sm: 2 },
-        }}
-      >
-        {children ?? <Outlet />}
+      <Box sx={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <Box
+          component="main"
+          sx={{
+            flex: 1,
+            overflow: 'auto',
+            minWidth: 0,
+            pb: isDesktopNav
+              ? 2
+              : { xs: 'calc(88px + env(safe-area-inset-bottom, 0px))', sm: 'calc(80px + env(safe-area-inset-bottom, 0px))' },
+            px: { xs: 2, sm: 3 },
+            py: { xs: 2, sm: 2.5 },
+          }}
+        >
+          {children ?? <Outlet />}
+        </Box>
+
+        {isDesktopNav && navItems.length > 0 && (
+          <Box
+            component="nav"
+            aria-label="Navegación principal"
+            sx={{
+              width: RAIL_WIDTH,
+              flexShrink: 0,
+              borderLeft: 1,
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              py: 1.5,
+              gap: 0.25,
+            }}
+          >
+            {navItems.map((item) => {
+              const active = navValue === item.value;
+              return (
+                <Tooltip key={item.value} title={item.label} placement="left">
+                  <IconButton
+                    onClick={() => navigate(item.value)}
+                    aria-label={item.label}
+                    aria-current={active ? 'page' : undefined}
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 1.5,
+                      color: active ? 'primary.main' : 'text.secondary',
+                      bgcolor: active ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+                      '&:hover': {
+                        bgcolor: active
+                          ? alpha(theme.palette.primary.main, 0.16)
+                          : 'action.hover',
+                      },
+                    }}
+                  >
+                    {item.icon}
+                  </IconButton>
+                </Tooltip>
+              );
+            })}
+          </Box>
+        )}
       </Box>
 
-      {!hideBottomNav && navItems.length > 0 && (
+      {!isDesktopNav && navItems.length > 0 && (
         <BottomNavigation
           value={navValue}
           onChange={(_, value) => navigate(value)}
@@ -146,45 +198,12 @@ export function DashboardLayout({ children }: { children?: React.ReactNode }) {
             height: { xs: 72, sm: 64 },
             pb: 'env(safe-area-inset-bottom)',
             bgcolor: 'background.paper',
-            display: { xs: 'flex', lg: isLandscape ? 'none' : 'flex' },
           }}
         >
           {navItems.map((item) => (
             <BottomNavigationAction key={item.value} label={item.label} value={item.value} icon={item.icon} />
           ))}
         </BottomNavigation>
-      )}
-
-      {isLandscape && navItems.length > 0 && (
-        <Box
-          sx={{
-            display: { xs: 'none', lg: 'flex' },
-            position: 'fixed',
-            right: 16,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            flexDirection: 'column',
-            gap: 1,
-            zIndex: theme.zIndex.speedDial,
-          }}
-        >
-          {navItems.map((item) => (
-            <IconButton
-              key={item.value}
-              color={navValue === item.value ? 'primary' : 'default'}
-              onClick={() => navigate(item.value)}
-              sx={{
-                bgcolor: 'background.paper',
-                boxShadow: 2,
-                width: 56,
-                height: 56,
-              }}
-              aria-label={item.label}
-            >
-              {item.icon}
-            </IconButton>
-          ))}
-        </Box>
       )}
     </Box>
   );

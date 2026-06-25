@@ -3,6 +3,7 @@ import { query, getClient } from '../../config/postgres-tiwater.config.js';
 function parseItem(row) {
   return {
     id: row.id,
+    menuItemId: row.product_id,
     productId: row.product_id,
     manualName: row.manual_name,
     quantity: parseFloat(row.quantity),
@@ -166,8 +167,113 @@ export class TejabanOrderModel {
     }
     if (fields.length === 0) return this.findById(id);
     values.push(id);
-    await query(`UPDATE tejaban_ordenes SET ${fields.join(', ')} WHERE id = $${i}`, values);
+    await query(`UPDATE tejaban_ordenes SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${i}`, values);
     return this.findById(id);
+  }
+
+  static async recalcTotals(client, orderId) {
+    const itemsRes = await client.query(
+      `SELECT COALESCE(SUM(subtotal), 0) AS subtotal FROM tejaban_orden_items WHERE orden_id = $1`,
+      [orderId],
+    );
+    const subtotal = parseFloat(itemsRes.rows[0].subtotal);
+    await client.query(
+      `UPDATE tejaban_ordenes SET subtotal = $1, tax = 0, total = $1, updated_at = NOW() WHERE id = $2`,
+      [subtotal, orderId],
+    );
+  }
+
+  static async assertOpenOrder(orderId, client = null) {
+    const q = client ? client.query.bind(client) : query;
+    const res = await q(`SELECT status FROM tejaban_ordenes WHERE id = $1`, [orderId]);
+    if (res.rows.length === 0) throw new Error('Orden no encontrada');
+    if (res.rows[0].status !== 'abierta') throw new Error('Solo se pueden modificar órdenes abiertas');
+  }
+
+  static async addOrderItem(orderId, { menuItemId, productId, quantity = 1, notes }) {
+    const productKey = menuItemId || productId;
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      await this.assertOpenOrder(orderId, client);
+
+      const productRes = await client.query('SELECT * FROM tejaban_products WHERE id = $1', [productKey]);
+      const product = productRes.rows[0];
+      if (!product) throw new Error('Producto no encontrado');
+
+      const qty = quantity || 1;
+      const existingRes = await client.query(
+        `SELECT * FROM tejaban_orden_items WHERE orden_id = $1 AND product_id = $2`,
+        [orderId, product.id],
+      );
+
+      if (existingRes.rows.length > 0) {
+        const row = existingRes.rows[0];
+        const newQty = parseFloat(row.quantity) + qty;
+        const subtotal = parseFloat(product.price) * newQty;
+        await client.query(
+          `UPDATE tejaban_orden_items SET quantity = $1, subtotal = $2 WHERE id = $3`,
+          [newQty, subtotal, row.id],
+        );
+      } else {
+        const unitPrice = parseFloat(product.price);
+        const subtotal = unitPrice * qty;
+        await client.query(
+          `INSERT INTO tejaban_orden_items (orden_id, product_id, quantity, unit_price, subtotal, notes)
+           VALUES ($1,$2,$3,$4,$5,$6)`,
+          [orderId, product.id, qty, unitPrice, subtotal, notes || null],
+        );
+      }
+
+      await this.recalcTotals(client, orderId);
+      await client.query('COMMIT');
+      return this.findById(orderId);
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async updateOrderItem(orderId, itemId, { quantity, notes }) {
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      await this.assertOpenOrder(orderId, client);
+
+      const itemRes = await client.query(
+        `SELECT * FROM tejaban_orden_items WHERE id = $1 AND orden_id = $2`,
+        [itemId, orderId],
+      );
+      if (itemRes.rows.length === 0) throw new Error('Línea no encontrada');
+      const item = itemRes.rows[0];
+
+      if (quantity !== undefined && quantity <= 0) {
+        await client.query(`DELETE FROM tejaban_orden_items WHERE id = $1`, [itemId]);
+      } else {
+        const newQty = quantity !== undefined ? quantity : parseFloat(item.quantity);
+        const subtotal = parseFloat(item.unit_price) * newQty;
+        const noteVal = notes !== undefined ? notes : item.notes;
+        await client.query(
+          `UPDATE tejaban_orden_items SET quantity = $1, subtotal = $2, notes = $3 WHERE id = $4`,
+          [newQty, subtotal, noteVal, itemId],
+        );
+      }
+
+      await this.recalcTotals(client, orderId);
+      await client.query('COMMIT');
+      return this.findById(orderId);
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async removeOrderItem(orderId, itemId) {
+    return this.updateOrderItem(orderId, itemId, { quantity: 0 });
   }
 }
 

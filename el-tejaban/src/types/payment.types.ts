@@ -1,4 +1,9 @@
-export type PaymentMethod = 'efectivo' | 'tarjeta' | 'transferencia';
+export type PaymentMethod =
+  | 'efectivo'
+  | 'tarjeta'
+  | 'transferencia'
+  | 'uber_eats'
+  | 'didi';
 
 export type PaymentStatus = 'registrado' | 'conciliado' | 'anulado';
 
@@ -18,6 +23,8 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   efectivo: 'Efectivo',
   tarjeta: 'Tarjeta',
   transferencia: 'Transferencia',
+  uber_eats: 'Uber Eats',
+  didi: 'DiDi Food',
 };
 
 export interface CreatePaymentPayload {
@@ -35,4 +42,6 @@ export interface DailySummary {
   cashTotal: number;
   cardTotal: number;
   transferTotal: number;
+  uberEatsTotal: number;
+  didiTotal: number;
 }

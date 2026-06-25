@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
+    "predev": "node scripts/migrations/run-all-migrations.js",
     "dev": "nodemon src/index.js",
     "migrate:auth": "bash scripts/migrations/run-migration.sh scripts/migrations/007_create_clients_table.sql && bash scripts/migrations/run-migration.sh scripts/migrations/018_create_roles_table.sql && bash scripts/migrations/run-migration.sh scripts/migrations/019_create_users_table.sql && bash scripts/migrations/run-migration.sh scripts/migrations/020_seed_roles_and_admin_user.sql",
     "migrate:quotes": "bash scripts/migrations/run-tiwater-migration.sh scripts/migrations/004_create_tiwater_products_table.sql && bash scripts/migrations/run-tiwater-migration.sh scripts/migrations/005_create_tiwater_quotes_table.sql",

@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   CircularProgress,
+  Collapse,
   Divider,
   Grid,
   IconButton,
@@ -19,15 +20,25 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu';
 import { toast } from 'react-toastify';
 import { orderService } from '@tejaban/services/order.service';
+import { menuService } from '@tejaban/services/menu.service';
 import { paymentService } from '@tejaban/services/payment.service';
+import type { MenuCategory, MenuItem } from '@tejaban/types/menu.types';
 import type { Order, OrderStatus } from '@tejaban/types/order.types';
 import { ORDER_STATUS_LABELS } from '@tejaban/types/order.types';
 import { formatCurrency, formatDateTime } from '@tejaban/utils/format';
 import { OrderStatusChip } from '@tejaban/components/orders/order-status-chip';
 import { PaymentDialog } from '@tejaban/components/pos/payment-dialog';
+import { MenuGrid } from '@tejaban/components/pos/menu-grid';
+import { OrderReceiptDialog } from '@tejaban/components/orders/order-receipt-dialog';
 import { tejabanPath } from '@tejaban/paths';
+import type { Payment } from '@tejaban/types/payment.types';
+import { ORDER_TYPE_LABELS } from '@tejaban/types/order.types';
+import PrintIcon from '@mui/icons-material/Print';
+import { printOrderTicket } from '@tejaban/utils/print-order-ticket';
 
 const STATUS_FLOW: OrderStatus[] = ['abierta', 'en_preparacion', 'lista', 'cerrada'];
 
@@ -39,7 +50,13 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [lastPayment, setLastPayment] = useState<Payment | null>(null);
   const [notes, setNotes] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [menuCategory, setMenuCategory] = useState<MenuCategory>('cahuamanta');
+  const [loadingMenu, setLoadingMenu] = useState(false);
 
   const loadOrder = useCallback(async () => {
     setLoading(true);
@@ -52,6 +69,17 @@ export default function OrderDetailPage() {
   useEffect(() => {
     loadOrder();
   }, [loadOrder]);
+
+  const loadMenu = useCallback(async () => {
+    if (menuItems.length > 0) return;
+    setLoadingMenu(true);
+    try {
+      const items = await menuService.getMenu();
+      setMenuItems(items);
+    } finally {
+      setLoadingMenu(false);
+    }
+  }, [menuItems.length]);
 
   const isEditable = order?.status === 'abierta';
   const canPay = order && order.status !== 'cerrada' && order.status !== 'cancelada';
@@ -68,11 +96,39 @@ export default function OrderDetailPage() {
 
   const handleItemQty = async (itemId: number, quantity: number) => {
     try {
-      const updated = await orderService.updateOrderItem(orderId, itemId, { quantity });
+      const updated =
+        quantity <= 0
+          ? await orderService.removeOrderItem(orderId, itemId)
+          : await orderService.updateOrderItem(orderId, itemId, { quantity });
       setOrder(updated);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error');
     }
+  };
+
+  const handleRemoveItem = async (itemId: number) => {
+    try {
+      const updated = await orderService.removeOrderItem(orderId, itemId);
+      setOrder(updated);
+      toast.info('Producto eliminado');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error');
+    }
+  };
+
+  const handleAddProduct = async (item: MenuItem) => {
+    try {
+      const updated = await orderService.addOrderItem(orderId, { menuItemId: item.id, quantity: 1 });
+      setOrder(updated);
+      toast.success(`${item.name} agregado`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error');
+    }
+  };
+
+  const handleToggleMenu = async () => {
+    if (!menuOpen) await loadMenu();
+    setMenuOpen((v) => !v);
   };
 
   const handlePayment = async (payload: {
@@ -80,8 +136,10 @@ export default function OrderDetailPage() {
     amount: number;
     terminalTicketRef?: string;
   }) => {
-    const { order: updated } = await paymentService.createPayment(orderId, payload);
+    const { order: updated, payment } = await paymentService.createPayment(orderId, payload);
     setOrder(updated);
+    setLastPayment(payment);
+    setReceiptOpen(true);
     toast.success('Pago registrado');
   };
 
@@ -116,6 +174,8 @@ export default function OrderDetailPage() {
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {formatDateTime(order.createdAt)}
+            {' · '}
+            {ORDER_TYPE_LABELS[order.orderType]}
             {order.tableLabel ? ` · ${order.tableLabel}` : ''}
           </Typography>
         </Box>
@@ -125,42 +185,84 @@ export default function OrderDetailPage() {
       <Grid container spacing={2}>
         <Grid item xs={12} md={7}>
           <Paper elevation={0} sx={{ border: 1, borderColor: 'divider', borderRadius: 3, p: 2 }}>
-            <Typography variant="h6" fontWeight={700} gutterBottom>
-              Productos
-            </Typography>
-            <List disablePadding>
-              {order.items.map((item) => (
-                <ListItem
-                  key={item.id}
-                  sx={{ px: 0, alignItems: 'flex-start' }}
-                  secondaryAction={
-                    isEditable ? (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleItemQty(item.id, item.quantity - 1)}
-                          disabled={item.quantity <= 1}
-                        >
-                          <RemoveIcon fontSize="small" />
-                        </IconButton>
-                        <Typography fontWeight={700} sx={{ minWidth: 24, textAlign: 'center' }}>
-                          {item.quantity}
-                        </Typography>
-                        <IconButton size="small" onClick={() => handleItemQty(item.id, item.quantity + 1)}>
-                          <AddIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    ) : undefined
-                  }
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="h6" fontWeight={700}>
+                Productos
+              </Typography>
+              {isEditable && (
+                <Button
+                  size="small"
+                  variant={menuOpen ? 'contained' : 'outlined'}
+                  startIcon={<RestaurantMenuIcon />}
+                  onClick={handleToggleMenu}
                 >
-                  <ListItemText
-                    primary={item.menuItem?.name ?? item.manualName}
-                    secondary={`${formatCurrency(item.unitPrice)} c/u`}
-                  />
-                  <Typography fontWeight={700}>{formatCurrency(item.subtotal)}</Typography>
-                </ListItem>
-              ))}
-            </List>
+                  {menuOpen ? 'Ocultar menú' : 'Agregar productos'}
+                </Button>
+              )}
+            </Box>
+
+            {order.items.length === 0 ? (
+              <Typography color="text.secondary" sx={{ py: 2 }}>
+                Sin productos. {isEditable ? 'Agrega desde el menú.' : ''}
+              </Typography>
+            ) : (
+              <List disablePadding>
+                {order.items.map((item) => (
+                  <ListItem
+                    key={item.id}
+                    sx={{ px: 0, alignItems: 'flex-start', gap: 1 }}
+                    secondaryAction={
+                      isEditable ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleItemQty(item.id, item.quantity - 1)}
+                            aria-label="Reducir cantidad"
+                          >
+                            <RemoveIcon fontSize="small" />
+                          </IconButton>
+                          <Typography fontWeight={700} sx={{ minWidth: 24, textAlign: 'center' }}>
+                            {item.quantity}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleItemQty(item.id, item.quantity + 1)}
+                            aria-label="Aumentar cantidad"
+                          >
+                            <AddIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleRemoveItem(item.id)}
+                            aria-label="Eliminar producto"
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      ) : undefined
+                    }
+                  >
+                    <ListItemText
+                      primary={item.menuItem?.name ?? item.manualName}
+                      secondary={`${formatCurrency(item.unitPrice)} c/u`}
+                    />
+                    <Typography fontWeight={700}>{formatCurrency(item.subtotal)}</Typography>
+                  </ListItem>
+                ))}
+              </List>
+            )}
+
+            <Collapse in={menuOpen && isEditable}>
+              <Divider sx={{ my: 2 }} />
+              <MenuGrid
+                items={menuItems}
+                category={menuCategory}
+                loading={loadingMenu}
+                onCategoryChange={setMenuCategory}
+                onSelectItem={handleAddProduct}
+              />
+            </Collapse>
 
             <Divider sx={{ my: 2 }} />
 
@@ -223,9 +325,26 @@ export default function OrderDetailPage() {
           )}
 
           {order.status === 'cerrada' && (
-            <Typography variant="body2" color="success.main" sx={{ mt: 2, textAlign: 'center', fontWeight: 600 }}>
-              Orden cerrada {order.closedAt ? formatDateTime(order.closedAt) : ''}
-            </Typography>
+            <>
+              <Typography variant="body2" color="success.main" sx={{ mt: 2, textAlign: 'center', fontWeight: 600 }}>
+                Orden cerrada {order.closedAt ? formatDateTime(order.closedAt) : ''}
+              </Typography>
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={<PrintIcon />}
+                sx={{ mt: 2 }}
+                onClick={() => {
+                  try {
+                    printOrderTicket(order, lastPayment);
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : 'No se pudo imprimir');
+                  }
+                }}
+              >
+                Imprimir ticket
+              </Button>
+            </>
           )}
         </Grid>
       </Grid>
@@ -236,6 +355,13 @@ export default function OrderDetailPage() {
         total={order.total}
         onClose={() => setPaymentOpen(false)}
         onConfirm={handlePayment}
+      />
+
+      <OrderReceiptDialog
+        open={receiptOpen}
+        order={order}
+        payment={lastPayment}
+        onClose={() => setReceiptOpen(false)}
       />
     </Box>
   );

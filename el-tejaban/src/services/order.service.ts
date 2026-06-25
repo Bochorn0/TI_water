@@ -41,17 +41,30 @@ export const orderService = {
     return data;
   },
 
+  async addOrderItem(
+    orderId: number,
+    payload: { menuItemId: number; quantity?: number; notes?: string },
+  ): Promise<Order> {
+    if (CONFIG.USE_MOCK_API) {
+      return mockStore.addOrderItem(orderId, { ...payload, quantity: payload.quantity ?? 1 });
+    }
+    const { data } = await tejabanAxios.post<Order>(`/orders/${orderId}/items`, payload);
+    return data;
+  },
+
   async updateOrderItem(
     orderId: number,
     itemId: number,
     patch: { quantity?: number; notes?: string },
   ): Promise<Order> {
     if (CONFIG.USE_MOCK_API) return mockStore.updateOrderItem(orderId, itemId, patch);
-    throw new Error('Actualizar líneas vía API pendiente');
+    const { data } = await tejabanAxios.patch<Order>(`/orders/${orderId}/items/${itemId}`, patch);
+    return data;
   },
 
   async removeOrderItem(orderId: number, itemId: number): Promise<Order> {
     if (CONFIG.USE_MOCK_API) return mockStore.removeOrderItem(orderId, itemId);
-    throw new Error('Eliminar líneas vía API pendiente');
+    const { data } = await tejabanAxios.delete<Order>(`/orders/${orderId}/items/${itemId}`);
+    return data;
   },
 };

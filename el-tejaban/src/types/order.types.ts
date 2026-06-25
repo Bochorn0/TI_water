@@ -7,7 +7,7 @@ export type OrderStatus =
   | 'cerrada'
   | 'cancelada';
 
-export type OrderType = 'mostrador' | 'mesa';
+export type OrderType = 'mostrador' | 'mesa' | 'uber_eats' | 'didi';
 
 export interface OrderItem {
   id: number;
@@ -36,6 +36,13 @@ export interface Order {
   updatedAt: string;
   closedAt?: string;
 }
+
+export const ORDER_TYPE_LABELS: Record<OrderType, string> = {
+  mostrador: 'Mostrador',
+  mesa: 'Mesa',
+  uber_eats: 'Uber Eats',
+  didi: 'DiDi Food',
+};
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   abierta: 'Abierta',

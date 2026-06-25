@@ -2,21 +2,26 @@ import {
   Box,
   Button,
   Divider,
+  FormControl,
   IconButton,
+  InputLabel,
   List,
   ListItem,
   ListItemText,
+  MenuItem,
   Paper,
+  Select,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import type { OrderType } from '@tejaban/types/order.types';
+import { ORDER_TYPE_LABELS } from '@tejaban/types/order.types';
 import { formatCurrency } from '@tejaban/utils/format';
+
+const ORDER_TYPES: OrderType[] = ['mostrador', 'mesa', 'uber_eats', 'didi'];
 
 export type CartLine = {
   menuItemId: number;
@@ -83,20 +88,21 @@ export function OrderCart({
 
       {!readOnly && (
         <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          <ToggleButtonGroup
-            exclusive
-            value={orderType}
-            onChange={(_, v) => v && onOrderTypeChange(v)}
-            fullWidth
-            size="small"
-          >
-            <ToggleButton value="mostrador" sx={{ minHeight: 44 }}>
-              Mostrador
-            </ToggleButton>
-            <ToggleButton value="mesa" sx={{ minHeight: 44 }}>
-              Mesa
-            </ToggleButton>
-          </ToggleButtonGroup>
+          <FormControl fullWidth size="small">
+            <InputLabel id="order-type-label">Tipo de orden</InputLabel>
+            <Select
+              labelId="order-type-label"
+              label="Tipo de orden"
+              value={orderType}
+              onChange={(e) => onOrderTypeChange(e.target.value as OrderType)}
+            >
+              {ORDER_TYPES.map((type) => (
+                <MenuItem key={type} value={type}>
+                  {ORDER_TYPE_LABELS[type]}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
           {orderType === 'mesa' && (
             <TextField
@@ -106,6 +112,17 @@ export function OrderCart({
               size="small"
               fullWidth
               placeholder="Ej. Mesa 4"
+            />
+          )}
+
+          {(orderType === 'uber_eats' || orderType === 'didi') && (
+            <TextField
+              label="Ref. pedido plataforma"
+              value={tableLabel}
+              onChange={(e) => onTableLabelChange(e.target.value)}
+              size="small"
+              fullWidth
+              placeholder="Ej. #A4F2 Uber Eats"
             />
           )}
 

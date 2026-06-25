@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import PaymentsIcon from '@mui/icons-material/Payments';
+import DeliveryDiningIcon from '@mui/icons-material/DeliveryDining';
 import type { PaymentMethod } from '@tejaban/types/payment.types';
 import { PAYMENT_METHOD_LABELS } from '@tejaban/types/payment.types';
 import { formatCurrency } from '@tejaban/utils/format';
@@ -27,12 +28,22 @@ type Props = {
   onConfirm: (payload: { method: PaymentMethod; amount: number; terminalTicketRef?: string }) => Promise<void>;
 };
 
+const METHODS: PaymentMethod[] = [
+  'efectivo',
+  'tarjeta',
+  'transferencia',
+  'uber_eats',
+  'didi',
+];
+
 export function PaymentDialog({ open, orderNumber, total, onClose, onConfirm }: Props) {
   const [method, setMethod] = useState<PaymentMethod>('efectivo');
   const [amount, setAmount] = useState(String(total));
   const [terminalRef, setTerminalRef] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const needsRef = method === 'tarjeta' || method === 'uber_eats' || method === 'didi';
 
   const handleConfirm = async () => {
     setError('');
@@ -51,7 +62,7 @@ export function PaymentDialog({ open, orderNumber, total, onClose, onConfirm }: 
       await onConfirm({
         method,
         amount: parsedAmount,
-        terminalTicketRef: method === 'tarjeta' ? terminalRef.trim() : undefined,
+        terminalTicketRef: needsRef && terminalRef.trim() ? terminalRef.trim() : undefined,
       });
       setTerminalRef('');
       setMethod('efectivo');
@@ -87,34 +98,22 @@ export function PaymentDialog({ open, orderNumber, total, onClose, onConfirm }: 
             Método de pago
           </Typography>
           <RadioGroup value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
-            <FormControlLabel
-              value="efectivo"
-              control={<Radio />}
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <PaymentsIcon fontSize="small" />
-                  {PAYMENT_METHOD_LABELS.efectivo}
-                </Box>
-              }
-              sx={{ minHeight: 48 }}
-            />
-            <FormControlLabel
-              value="tarjeta"
-              control={<Radio />}
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CreditCardIcon fontSize="small" />
-                  {PAYMENT_METHOD_LABELS.tarjeta}
-                </Box>
-              }
-              sx={{ minHeight: 48 }}
-            />
-            <FormControlLabel
-              value="transferencia"
-              control={<Radio />}
-              label={PAYMENT_METHOD_LABELS.transferencia}
-              sx={{ minHeight: 48 }}
-            />
+            {METHODS.map((m) => (
+              <FormControlLabel
+                key={m}
+                value={m}
+                control={<Radio />}
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {m === 'efectivo' && <PaymentsIcon fontSize="small" />}
+                    {m === 'tarjeta' && <CreditCardIcon fontSize="small" />}
+                    {(m === 'uber_eats' || m === 'didi') && <DeliveryDiningIcon fontSize="small" />}
+                    {PAYMENT_METHOD_LABELS[m]}
+                  </Box>
+                }
+                sx={{ minHeight: 44 }}
+              />
+            ))}
           </RadioGroup>
         </FormControl>
 
@@ -137,7 +136,18 @@ export function PaymentDialog({ open, orderNumber, total, onClose, onConfirm }: 
             onChange={(e) => setTerminalRef(e.target.value)}
             placeholder="Ej. TKT-20260622-00451"
             helperText="Número del comprobante de la terminal externa"
-            autoFocus
+            sx={{ mb: 2 }}
+          />
+        )}
+
+        {(method === 'uber_eats' || method === 'didi') && (
+          <TextField
+            label="Ref. pedido plataforma (opcional)"
+            fullWidth
+            value={terminalRef}
+            onChange={(e) => setTerminalRef(e.target.value)}
+            placeholder={method === 'uber_eats' ? 'Ej. #A4F2 Uber Eats' : 'Ej. pedido DiDi'}
+            helperText="ID del pedido en la app de delivery"
           />
         )}
 

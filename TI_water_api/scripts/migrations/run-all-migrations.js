@@ -41,6 +41,7 @@ const MIGRATIONS = [
   'scripts/migrations/028_create_tejaban_tables.sql',
   'scripts/migrations/029_seed_tejaban_menu.sql',
   'scripts/migrations/030_add_el_tejaban_permissions.sql',
+  'scripts/migrations/031_seed_tejaban_ubereats_menu_items.sql',
 ];
 
 const ENSURE_LEDGER_SQL = `

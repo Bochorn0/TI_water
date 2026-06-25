@@ -1,3 +1,4 @@
+import { CONFIG } from '@tejaban/config-global';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { canAccessElTejaban, canAccessRoute, hasPermission } from '@tejaban/auth/permissions';
 import type { PermissionPath, TiWaterAuthUser } from '@tejaban/types/auth.types';
@@ -27,8 +28,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isBootstrapping, setIsBootstrapping] = useState(() => {
     const token = getStoredToken();
     if (!token) return false;
-    // Mock session is local-only — no API round-trip (avoids spinner/401 loops in dev)
-    if (token === 'mock-jwt' && getStoredUser()) return false;
+    // Stale mock session after switching to real API — force re-login
+    if (token === 'mock-jwt' && !CONFIG.USE_MOCK_API) return true;
+    if (token === 'mock-jwt' && CONFIG.USE_MOCK_API && getStoredUser()) return false;
     return true;
   });
 
@@ -39,6 +41,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (token === 'mock-jwt') {
+      if (!CONFIG.USE_MOCK_API) {
+        clearAuthStorage();
+        setUser(null);
+        setIsBootstrapping(false);
+        return;
+      }
       const stored = getStoredUser();
       if (!stored || !canAccessElTejaban(stored)) {
         clearAuthStorage();
