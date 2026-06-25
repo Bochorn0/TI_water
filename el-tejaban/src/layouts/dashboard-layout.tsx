@@ -22,6 +22,7 @@ import RestaurantMenuIcon from '@mui/icons-material/RestaurantMenu';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useAuth } from '@tejaban/auth/auth-context';
+import { TejabanLogo } from '@tejaban/components/tejaban-logo';
 import { filterNavByPermissions, roleLabel, displayName } from '@tejaban/auth/permissions';
 import { CONFIG } from '@tejaban/config-global';
 import { tejabanPath, tejabanRelativePath } from '@tejaban/paths';
@@ -30,7 +31,7 @@ import { PERMISSION_ADMIN, PERMISSION_POS } from '@tejaban/types/auth.types';
 import { desktopNavMediaQuery } from '@tejaban/layout/breakpoints';
 
 const RAIL_WIDTH = 64;
-
+ 
 const ALL_NAV_ITEMS: Array<{
   label: string;
   value: string;
@@ -77,12 +78,14 @@ export function DashboardLayout({ children }: { children?: React.ReactNode }) {
           borderColor: 'secondary.main',
         }}
       >
-        <Toolbar sx={{ minHeight: { xs: 56, sm: 64 }, gap: 1 }}>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="h6" noWrap sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-              {CONFIG.appName}
-            </Typography>
-            <Typography variant="caption" sx={{ opacity: 0.85, display: { xs: 'none', sm: 'block' } }}>
+        <Toolbar sx={{ minHeight: { xs: 64, sm: 72 }, gap: 1 }}>
+          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <TejabanLogo height={56} maxWidth={200} />
+            <Typography
+              variant="caption"
+              sx={{ opacity: 0.85, display: { xs: 'none', md: 'block' }, maxWidth: 200 }}
+              noWrap
+            >
               {CONFIG.slogan}
             </Typography>
           </Box>

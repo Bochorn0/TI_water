@@ -11,6 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useAuth } from '@tejaban/auth/auth-context';
+import { TejabanLogo } from '@tejaban/components/tejaban-logo';
 import { CONFIG } from '@tejaban/config-global';
 
 export default function LoginPage() {
@@ -45,9 +46,9 @@ export default function LoginPage() {
       <Container maxWidth="sm">
         <Card sx={{ borderRadius: 4, overflow: 'hidden' }}>
           <Box sx={{ bgcolor: 'primary.main', color: 'white', p: 3, textAlign: 'center' }}>
-            <Typography variant="h4" fontWeight={900}>
-              {CONFIG.appName}
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1 }}>
+              <TejabanLogo height={160} maxWidth={360} />
+            </Box>
             <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
               {CONFIG.slogan}
             </Typography>
