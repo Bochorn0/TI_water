@@ -22,4 +22,6 @@ export const CONFIG = {
   USE_MOCK_API,
   /** Base path on tiwater.mx */
   APP_BASE: '/el-tejaban',
+  /** Served from public/el-tejaban/logo.png */
+  logoUrl: '/el-tejaban/logo.png',
 } as const;

@@ -48,6 +48,7 @@ export default function OrderDetailPage() {
   const orderId = Number(id);
 
   const [order, setOrder] = useState<Order | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -60,10 +61,18 @@ export default function OrderDetailPage() {
 
   const loadOrder = useCallback(async () => {
     setLoading(true);
-    const data = await orderService.getOrder(orderId);
-    setOrder(data);
-    if (data?.notes) setNotes(data.notes);
-    setLoading(false);
+    setLoadError(null);
+    try {
+      const data = await orderService.getOrder(orderId);
+      setOrder(data);
+      if (data?.notes) setNotes(data.notes);
+      if (!data) setLoadError('Orden no encontrada');
+    } catch (e) {
+      setOrder(null);
+      setLoadError(e instanceof Error ? e.message : 'No se pudo cargar la orden');
+    } finally {
+      setLoading(false);
+    }
   }, [orderId]);
 
   useEffect(() => {
@@ -154,7 +163,7 @@ export default function OrderDetailPage() {
   if (!order) {
     return (
       <Box sx={{ textAlign: 'center', py: 8 }}>
-        <Typography>Orden no encontrada</Typography>
+        <Typography>{loadError ?? 'Orden no encontrada'}</Typography>
         <Button onClick={() => navigate(tejabanPath('/orders'))} sx={{ mt: 2 }}>
           Volver
         </Button>

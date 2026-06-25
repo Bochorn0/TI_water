@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { useAuth } from '@tejaban/auth/auth-context';
 import { CONFIG } from '@tejaban/config-global';
+import { TejabanLogo } from '@tejaban/components/tejaban-logo';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -44,11 +45,20 @@ export default function LoginPage() {
     >
       <Container maxWidth="sm">
         <Card sx={{ borderRadius: 4, overflow: 'hidden' }}>
-          <Box sx={{ bgcolor: 'primary.main', color: 'white', p: 3, textAlign: 'center' }}>
-            <Typography variant="h4" fontWeight={900}>
-              {CONFIG.appName}
-            </Typography>
-            <Typography variant="body1" sx={{ opacity: 0.9, mt: 0.5 }}>
+          <Box
+            sx={{
+              p: { xs: 3, sm: 4 },
+              pt: { xs: 4, sm: 5 },
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 1.5,
+              bgcolor: 'background.paper',
+            }}
+          >
+            <TejabanLogo height={140} />
+            <Typography variant="body1" color="text.secondary">
               {CONFIG.slogan}
             </Typography>
           </Box>

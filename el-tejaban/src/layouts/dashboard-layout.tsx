@@ -23,6 +23,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import { useAuth } from '@tejaban/auth/auth-context';
 import { filterNavByPermissions, roleLabel, displayName } from '@tejaban/auth/permissions';
 import { CONFIG } from '@tejaban/config-global';
+import { TejabanLogo } from '@tejaban/components/tejaban-logo';
 import { tejabanPath, tejabanRelativePath } from '@tejaban/paths';
 import type { PermissionPath } from '@tejaban/types/auth.types';
 import { PERMISSION_ADMIN, PERMISSION_POS } from '@tejaban/types/auth.types';
@@ -76,11 +77,12 @@ export function DashboardLayout({ children }: { children?: React.ReactNode }) {
         }}
       >
         <Toolbar sx={{ minHeight: { xs: 56, sm: 64 }, gap: 1 }}>
+          <TejabanLogo height={44} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="h6" noWrap sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+            <Typography variant="h6" noWrap sx={{ fontWeight: 800, lineHeight: 1.2, display: { xs: 'none', sm: 'block' } }}>
               {CONFIG.appName}
             </Typography>
-            <Typography variant="caption" sx={{ opacity: 0.85, display: { xs: 'none', sm: 'block' } }}>
+            <Typography variant="caption" sx={{ opacity: 0.85, display: { xs: 'none', md: 'block' } }}>
               {CONFIG.slogan}
             </Typography>
           </Box>

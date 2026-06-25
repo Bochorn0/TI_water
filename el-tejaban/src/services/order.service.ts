@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { CONFIG } from '@tejaban/config-global';
 import { mockStore } from '@tejaban/mock/mock-store';
 import { tejabanAxios } from '@tejaban/api/axiosInstance';
@@ -17,11 +18,13 @@ export const orderService = {
 
   async getOrder(id: number): Promise<Order | null> {
     if (CONFIG.USE_MOCK_API) return mockStore.getOrder(id);
+    if (!Number.isFinite(id) || id <= 0) return null;
     try {
       const { data } = await tejabanAxios.get<Order>(`/orders/${id}`);
       return data;
-    } catch {
-      return null;
+    } catch (e) {
+      if (axios.isAxiosError(e) && e.response?.status === 404) return null;
+      throw e;
     }
   },
 
