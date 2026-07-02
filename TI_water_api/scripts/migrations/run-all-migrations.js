@@ -1,0 +1,136 @@
+#!/usr/bin/env node
+/**
+ * Ordered migrations with a tiwater_migrations ledger (name + executed_at).
+ * Each file runs in a transaction; on success a row is inserted. Already-recorded
+ * names are skipped. Uses pg_advisory_lock so concurrent app instances do not
+ * race on the same migration.
+ *
+ * Env: POSTGRES_* and optional POSTGRES_TIWATER_* (same as API / postgres-tiwater.config).
+ * Database/host/user/password resolution must match postgres-tiwater.config.js.
+ * Usage (from TI_water_api): node scripts/migrations/run-all-migrations.js
+ */
+
+import 'dotenv/config';
+import { readFileSync } from 'fs';
+import { basename, dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+import pkg from 'pg';
+import { resolvePostgresForMigrations } from '../../src/config/resolve-postgres-for-migrations.js';
+
+const { Client } = pkg;
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const API_DIR = join(__dirname, '../..');
+
+/** Advisory lock key (arbitrary); serializes migration runs across instances */
+const MIGRATION_LOCK_KEY = 0x74697761; // "tiwa"
+
+const MIGRATIONS = [
+  'scripts/migrations/007_create_clients_table.sql',
+  'scripts/migrations/018_create_roles_table.sql',
+  'scripts/migrations/019_create_users_table.sql',
+  'scripts/migrations/020_seed_roles_and_admin_user.sql',
+  'scripts/migrations/004_create_tiwater_products_table.sql',
+  'scripts/migrations/005_create_tiwater_quotes_table.sql',
+  'scripts/migrations/021_add_tiwater_catalog_permission.sql',
+  'scripts/migrations/022_seed_admin_tiwater_user.sql',
+  'scripts/migrations/023_quote_items_manual_lines.sql',
+  'scripts/migrations/024_create_tiwater_secret_links_table.sql',
+  'scripts/migrations/025_add_product_key_to_tiwater_products.sql',
+  'scripts/migrations/026_seed_tiwater_valvulas_catalog.sql',
+  'scripts/migrations/027_seed_tiwater_other_catalogs.sql',
+  'scripts/migrations/028_create_tejaban_tables.sql',
+  'scripts/migrations/029_seed_tejaban_menu.sql',
+  'scripts/migrations/030_add_el_tejaban_permissions.sql',
+  'scripts/migrations/031_seed_tejaban_ubereats_menu_items.sql',
+];
+
+const ENSURE_LEDGER_SQL = `
+CREATE TABLE IF NOT EXISTS tiwater_migrations (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tiwater_migrations_executed_at ON tiwater_migrations (executed_at DESC);
+`;
+
+async function main() {
+  const conn = resolvePostgresForMigrations();
+
+  if (
+    process.env.POSTGRES_DB &&
+    process.env.POSTGRES_TIWATER_DB &&
+    process.env.POSTGRES_DB !== process.env.POSTGRES_TIWATER_DB
+  ) {
+    console.error(
+      '[migrations] POSTGRES_DB and POSTGRES_TIWATER_DB differ. This API expects one logical database for auth + tiwater. Using database:',
+      conn.database,
+      '(same rule as postgres-tiwater.config.js). Fix Application Settings so both vars match or unset one.',
+    );
+  }
+
+  console.log(
+    '[migrations] connecting host=%s database=%s port=%s ssl=%s',
+    conn.host,
+    conn.database,
+    conn.port,
+    Boolean(conn.ssl),
+  );
+  console.log(
+    '[migrations] queue: %d files (last=%s)',
+    MIGRATIONS.length,
+    basename(MIGRATIONS[MIGRATIONS.length - 1]),
+  );
+
+  const client = new Client(conn);
+
+  try {
+    await client.connect();
+    await client.query(ENSURE_LEDGER_SQL);
+
+    await client.query('SELECT pg_advisory_lock($1)', [MIGRATION_LOCK_KEY]);
+    try {
+      for (const rel of MIGRATIONS) {
+        const name = basename(rel);
+        const { rowCount } = await client.query(
+          'SELECT 1 FROM tiwater_migrations WHERE name = $1',
+          [name],
+        );
+        if (rowCount > 0) {
+          console.log('[skip] already applied:', name);
+          continue;
+        }
+
+        const fullPath = join(API_DIR, rel);
+        const sql = readFileSync(fullPath, 'utf8');
+        console.log('[run]', name);
+
+        try {
+          await client.query('BEGIN');
+          await client.query(sql);
+          await client.query(
+            'INSERT INTO tiwater_migrations (name) VALUES ($1)',
+            [name],
+          );
+          await client.query('COMMIT');
+          console.log('[ok]', name);
+        } catch (err) {
+          await client.query('ROLLBACK');
+          throw err;
+        }
+      }
+      console.log('\n✅ Migrations finished (pending runs applied; rest skipped).');
+    } finally {
+      await client.query('SELECT pg_advisory_unlock($1)', [MIGRATION_LOCK_KEY]);
+    }
+  } catch (err) {
+    console.error(err);
+    process.exitCode = 1;
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

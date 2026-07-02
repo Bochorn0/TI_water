@@ -32,6 +32,14 @@ npm run dev
 
 El sitio estará disponible en `http://localhost:3040`
 
+**El Tejaban POS** (mismo servidor, misma app): `http://localhost:3040/el-tejaban/`
+
+Un solo `npm run build` genera todo en `dist/`.
+
+### Vista previa del build (producción local)
+
+`npm run build` luego `npm run start` — puerto **3041** (TI Water + `/el-tejaban/`).
+
 ## 🏗️ Build
 
 ```bash

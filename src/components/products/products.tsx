@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 
 export function Products() {
   return (
-    <Box
+    <Box  
       id="productos"
       sx={{
         py: { xs: 8, md: 12 },

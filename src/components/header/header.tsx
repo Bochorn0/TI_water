@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
@@ -17,7 +17,14 @@ import {
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
+import ViewSidebarIcon from '@mui/icons-material/ViewSidebar';
 import logoImage from '/assets/ti-water-logo.png';
+import { Badge, Tooltip } from '@mui/material';
+import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
+import { useAuth } from 'src/auth/auth-context';
+import { useQuoteDraftOptional } from 'src/quote/quote-draft-context';
+import { useAdminSidebarOpen } from 'src/components/admin/admin-sidebar-context';
+import { AccountMenu } from './account-menu';
 
 interface Props {
   window?: () => Window;
@@ -39,14 +46,28 @@ function HideOnScroll(props: Props) {
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { isAuthenticated, logout } = useAuth();
+  const quoteDraft = useQuoteDraftOptional();
+  const quoteUnits = quoteDraft?.totalUnits ?? 0;
+  const navigate = useNavigate();
+  const location = useLocation();
+  const openAdminSidebar = useAdminSidebarOpen();
+  const isAdminPath = location.pathname.startsWith('/admin');
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+    setMobileOpen(false);
+  };
+
   const menuItems = [
     { text: 'Nosotros', href: '/about' },
     { text: 'Purificadores de agua', href: '/purificadores' },
+    { text: 'Catálogo', href: '/catalogo' },
     { text: 'Sectores', href: '/#sectores' },
     { text: 'Contacto', href: '/contact' },
   ];
@@ -68,6 +89,13 @@ export function Header() {
         </IconButton>
       </Box>
       <List>
+        {quoteUnits > 0 && (
+          <ListItem disablePadding>
+            <ListItemButton component={Link} to="/cotizaciones" sx={{ color: 'primary.light' }}>
+              <ListItemText primary={`Borrador de cotización (${quoteUnits})`} />
+            </ListItemButton>
+          </ListItem>
+        )}
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding>
             <ListItemButton
@@ -80,11 +108,30 @@ export function Header() {
           </ListItem>
         ))}
       </List>
+      <Box sx={{ px: 2, pb: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {isAuthenticated ? (
+          <>
+            <Button fullWidth component={Link} to="/admin" sx={{ color: 'white' }}>
+              Herramientas admin
+            </Button>
+            <Button fullWidth component={Link} to="/admin/ajustes" sx={{ color: 'white' }}>
+              Mi cuenta
+            </Button>
+            <Button fullWidth onClick={handleLogout} sx={{ color: 'white' }}>
+              Cerrar sesión
+            </Button>
+          </>
+        ) : (
+          <Button fullWidth component={Link} to="/login" sx={{ color: 'white' }}>
+            Acceso admin
+          </Button>
+        )}
+      </Box>
       <Button
         variant="contained"
         color="primary"
         component={Link}
-        to="/contact"
+        to="/cotizaciones"
         sx={{ m: 2, px: 3 }}
         fullWidth
       >
@@ -129,21 +176,53 @@ export function Header() {
               ))}
             </Box>
 
-            <Box sx={{ display: { xs: 'none', md: 'flex' } }}>
-              <Button variant="contained" color="primary" component={Link} to="/contact" sx={{ px: 3 }}>
+            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
+              <Tooltip title="Productos añadidos a su cotización">
+                <Badge color="error" badgeContent={quoteUnits} max={99} overlap="circular" invisible={quoteUnits === 0}>
+                  <Button
+                    color="inherit"
+                    component={Link}
+                    to="/cotizaciones"
+                    sx={{ fontWeight: 500, minWidth: 0 }}
+                    startIcon={<RequestQuoteIcon sx={{ fontSize: 20 }} />}
+                  >
+                    Borrador{quoteUnits > 0 ? ` (${quoteUnits})` : ''}
+                  </Button>
+                </Badge>
+              </Tooltip>
+              <Button variant="contained" color="primary" component={Link} to="/cotizaciones" sx={{ px: 3 }}>
                 ¡Cotiza!
               </Button>
+              {isAuthenticated ? (
+                <AccountMenu />
+              ) : (
+                <Button color="inherit" component={Link} to="/login" sx={{ fontWeight: 500 }}>
+                  Admin
+                </Button>
+              )}
             </Box>
 
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              onClick={handleDrawerToggle}
-              sx={{ ml: 'auto', display: { md: 'none' }, color: 'white' }}
-            >
-              <MenuIcon />
-            </IconButton>
+            <Box sx={{ ml: 'auto', display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 0.5 }}>
+              {isAdminPath && openAdminSidebar && (
+                <IconButton
+                  color="inherit"
+                  aria-label="abrir menú del panel administración"
+                  onClick={() => openAdminSidebar()}
+                  sx={{ color: 'white' }}
+                >
+                  <ViewSidebarIcon />
+                </IconButton>
+              )}
+              <IconButton
+                color="inherit"
+                aria-label="open drawer"
+                edge="end"
+                onClick={handleDrawerToggle}
+                sx={{ color: 'white' }}
+              >
+                <MenuIcon />
+              </IconButton>
+            </Box>
           </Toolbar>
         </Container>
 
@@ -160,4 +239,3 @@ export function Header() {
     </HideOnScroll>
   );
 }
-

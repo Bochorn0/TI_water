@@ -1,0 +1,18 @@
+# Apache only (e.g. some PHP/cPanel hosts). Azure Static Web Apps ignores this file —
+# use public/staticwebapp.config.json (copied to dist) for SWA SPA fallback.
+# TI Water SPA: client routes serve index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Don't rewrite files or directories
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  # Send all other requests to index.html (SPA)
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Optional: prevent directory listing
+Options -Indexes

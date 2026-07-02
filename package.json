@@ -8,14 +8,18 @@
     "dev": "vite",
     "start": "vite preview",
     "build": "tsc && vite build",
-    "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
+    "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\" \"el-tejaban/src/**/*.{ts,tsx}\"",
     "lint:fix": "eslint --fix \"src/**/*.{js,jsx,ts,tsx}\"",
     "fm:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx}\"",
     "fm:fix": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
     "rm:all": "rm -rf node_modules .next out dist build",
     "re:start": "yarn rm:all && yarn install && yarn dev",
     "re:build": "yarn rm:all && yarn install && yarn build",
-    "dev:host": "vite --host"
+    "dev:host": "vite --host",
+    "catalog:valvulas": "node scripts/process-valvulas-catalog.mjs",
+    "catalog:others": "node scripts/process-other-catalogs.mjs",
+    "catalog:prepare-images": "node scripts/prepare-catalog-images.mjs",
+    "catalog:build-images": "node scripts/prepare-catalog-images.mjs --no-zip"
   },
   "engines": {
     "node": "20.x"
