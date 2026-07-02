@@ -27,6 +27,7 @@ export interface Order {
   orderType: OrderType;
   tableLabel?: string;
   items: OrderItem[];
+  itemCount?: number;
   subtotal: number;
   tax: number;
   total: number;

@@ -1,14 +1,28 @@
 import { CONFIG } from '@tejaban/config-global';
 import { mockStore } from '@tejaban/mock/mock-store';
 import { tejabanAxios } from '@tejaban/api/axiosInstance';
-import type { CreatePaymentPayload, DailySummary, Payment, SalesReport, SalesReportFilters } from '@tejaban/types/payment.types';
+import type {
+  CreatePaymentPayload,
+  DailySummary,
+  Payment,
+  PaymentListFilters,
+  SalesReport,
+  SalesReportFilters,
+} from '@tejaban/types/payment.types';
 import type { Order } from '@tejaban/types/order.types';
 
 export const paymentService = {
-  async getPayments(filters?: { today?: boolean }): Promise<Payment[]> {
+  async getPayments(filters?: PaymentListFilters): Promise<Payment[]> {
     if (CONFIG.USE_MOCK_API) return mockStore.getPayments(filters);
     const { data } = await tejabanAxios.get<{ payments: Payment[] }>('/payments', {
-      params: filters,
+      params: {
+        today: filters?.today,
+        from: filters?.fromDate,
+        to: filters?.toDate,
+        recordedBy: filters?.recordedBy,
+        methods: filters?.methods?.length ? filters.methods.join(',') : undefined,
+        orderTypes: filters?.orderTypes?.length ? filters.orderTypes.join(',') : undefined,
+      },
     });
     return data.payments;
   },
@@ -32,9 +46,14 @@ export const paymentService = {
     return data;
   },
 
-  async getDailySummary(date?: string): Promise<DailySummary> {
-    if (CONFIG.USE_MOCK_API) return mockStore.getDailySummary(date);
-    const { data } = await tejabanAxios.get<DailySummary>('/reports/daily');
+  async getDailySummary(filters?: { fromDate?: string; toDate?: string }): Promise<DailySummary> {
+    if (CONFIG.USE_MOCK_API) return mockStore.getDailySummary(filters);
+    const { data } = await tejabanAxios.get<DailySummary>('/reports/daily', {
+      params: {
+        from: filters?.fromDate,
+        to: filters?.toDate,
+      },
+    });
     return data;
   },
 

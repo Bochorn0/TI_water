@@ -26,7 +26,7 @@ const theme = createTheme({
       main: '#43A047',
     },
     background: {
-      default: '#E8F4FC',
+      default: '#EEF5FA',
       paper: '#FFFFFF',
     },
     text: {
@@ -79,6 +79,45 @@ const theme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: { borderRadius: 16 },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: 'none',
+        },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          borderRadius: 10,
+          bgcolor: 'background.paper',
+        },
+      },
+    },
+    MuiSelect: {
+      styleOverrides: {
+        root: { borderRadius: 10 },
+      },
+    },
+    MuiTabs: {
+      styleOverrides: {
+        indicator: {
+          height: 3,
+          borderRadius: '3px 3px 0 0',
+        },
+      },
+    },
+    MuiTab: {
+      styleOverrides: {
+        root: {
+          minHeight: 44,
+          fontWeight: 600,
+          fontSize: '0.875rem',
+          textTransform: 'none',
+          '&.Mui-selected': { fontWeight: 700 },
+        },
       },
     },
   },

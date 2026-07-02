@@ -48,6 +48,8 @@ export interface CreatePaymentPayload {
 
 export interface DailySummary {
   date: string;
+  fromDate?: string;
+  toDate?: string;
   orderCount: number;
   closedOrderCount: number;
   openOrderCount: number;
@@ -58,6 +60,23 @@ export interface DailySummary {
   uberEatsTotal: number;
   didiTotal: number;
   rapiTotal: number;
+}
+
+export interface DateRangeFilters {
+  fromDate?: string;
+  toDate?: string;
+  today?: boolean;
+}
+
+export interface OrderListFilters extends DateRangeFilters {
+  status?: import('./order.types').OrderStatus;
+  createdBy?: string;
+}
+
+export interface PaymentListFilters extends DateRangeFilters {
+  recordedBy?: string;
+  methods?: PaymentMethod[];
+  orderTypes?: import('./order.types').OrderType[];
 }
 
 export interface SalesReportFilters {
