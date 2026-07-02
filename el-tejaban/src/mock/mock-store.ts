@@ -144,12 +144,30 @@ export const mockStore = {
   },
 
   // --- Orders ---
-  async getOrders(filters?: { status?: OrderStatus; today?: boolean }): Promise<Order[]> {
+  async getOrders(filters?: {
+    status?: OrderStatus;
+    today?: boolean;
+    fromDate?: string;
+    toDate?: string;
+    createdBy?: string;
+  }): Promise<Order[]> {
     let result = [...orders];
     if (filters?.status) result = result.filter((o) => o.status === filters.status);
-    if (filters?.today) {
+    if (filters?.fromDate || filters?.toDate) {
+      const from = filters.fromDate ? new Date(`${filters.fromDate}T00:00:00`) : null;
+      const to = filters.toDate ? new Date(`${filters.toDate}T23:59:59.999`) : null;
+      result = result.filter((o) => {
+        const createdAt = new Date(o.createdAt);
+        if (from && createdAt < from) return false;
+        if (to && createdAt > to) return false;
+        return true;
+      });
+    } else if (filters?.today) {
       const today = new Date().toDateString();
       result = result.filter((o) => new Date(o.createdAt).toDateString() === today);
+    }
+    if (filters?.createdBy) {
+      result = result.filter((o) => o.createdBy === filters.createdBy);
     }
     return mockDelay(result.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
   },
@@ -283,11 +301,28 @@ export const mockStore = {
   },
 
   // --- Payments ---
-  async getPayments(filters?: { today?: boolean }): Promise<Payment[]> {
+  async getPayments(filters?: {
+    today?: boolean;
+    fromDate?: string;
+    toDate?: string;
+    recordedBy?: string;
+  }): Promise<Payment[]> {
     let result = [...payments];
-    if (filters?.today) {
+    if (filters?.fromDate || filters?.toDate) {
+      const from = filters.fromDate ? new Date(`${filters.fromDate}T00:00:00`) : null;
+      const to = filters.toDate ? new Date(`${filters.toDate}T23:59:59.999`) : null;
+      result = result.filter((p) => {
+        const paidAt = new Date(p.paidAt);
+        if (from && paidAt < from) return false;
+        if (to && paidAt > to) return false;
+        return true;
+      });
+    } else if (filters?.today) {
       const today = new Date().toDateString();
       result = result.filter((p) => new Date(p.paidAt).toDateString() === today);
+    }
+    if (filters?.recordedBy) {
+      result = result.filter((p) => p.recordedBy === filters.recordedBy);
     }
     return mockDelay(result.sort((a, b) => b.paidAt.localeCompare(a.paidAt)));
   },
@@ -326,13 +361,31 @@ export const mockStore = {
     return mockDelay({ payment, order: orders[orderIdx] });
   },
 
-  async getDailySummary(date?: string): Promise<import('@tejaban/types/payment.types').DailySummary> {
-    const target = date ? new Date(date).toDateString() : new Date().toDateString();
-    const dayOrders = orders.filter((o) => new Date(o.createdAt).toDateString() === target);
-    const dayPayments = payments.filter((p) => new Date(p.paidAt).toDateString() === target);
+  async getDailySummary(filters?: {
+    fromDate?: string;
+    toDate?: string;
+  }): Promise<import('@tejaban/types/payment.types').DailySummary> {
+    const useToday = !filters?.fromDate && !filters?.toDate;
+    const from = filters?.fromDate ? new Date(`${filters.fromDate}T00:00:00`) : null;
+    const to = filters?.toDate ? new Date(`${filters.toDate}T23:59:59.999`) : null;
+
+    const inRange = (iso: string) => {
+      if (useToday) return new Date(iso).toDateString() === new Date().toDateString();
+      const d = new Date(iso);
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    };
+
+    const dayOrders = orders.filter((o) => inRange(o.createdAt));
+    const dayPayments = payments.filter((p) => inRange(p.paidAt));
 
     return mockDelay({
-      date: target,
+      date: useToday
+        ? new Date().toDateString()
+        : `${filters!.fromDate} — ${filters!.toDate}`,
+      fromDate: useToday ? undefined : filters?.fromDate,
+      toDate: useToday ? undefined : filters?.toDate,
       orderCount: dayOrders.length,
       closedOrderCount: dayOrders.filter((o) => o.status === 'cerrada').length,
       openOrderCount: dayOrders.filter((o) => o.status !== 'cerrada' && o.status !== 'cancelada').length,

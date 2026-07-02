@@ -22,6 +22,7 @@ function parseItem(row) {
 }
 
 function parseOrder(row, items = []) {
+  const itemCount = row.item_count !== undefined ? parseInt(row.item_count, 10) : items.length;
   return {
     id: row.id,
     orderNumber: row.order_number,
@@ -29,6 +30,7 @@ function parseOrder(row, items = []) {
     orderType: row.order_type,
     tableLabel: row.table_label,
     items,
+    itemCount,
     subtotal: parseFloat(row.subtotal),
     tax: parseFloat(row.tax),
     total: parseFloat(row.total),
@@ -55,7 +57,8 @@ export class TejabanOrderModel {
 
   static async findAll(filters = {}) {
     let sql = `
-      SELECT o.*, u.nombre AS created_by_name
+      SELECT o.*, u.nombre AS created_by_name,
+        (SELECT COUNT(*)::int FROM tejaban_orden_items i WHERE i.orden_id = o.id) AS item_count
       FROM tejaban_ordenes o
       LEFT JOIN users u ON u.id = o.created_by
       WHERE 1=1`;
@@ -68,6 +71,18 @@ export class TejabanOrderModel {
     }
     if (filters.today) {
       sql += ` AND o.created_at::date = CURRENT_DATE`;
+    }
+    if (filters.fromDate) {
+      sql += ` AND o.created_at::date >= $${i++}`;
+      values.push(filters.fromDate);
+    }
+    if (filters.toDate) {
+      sql += ` AND o.created_at::date <= $${i++}`;
+      values.push(filters.toDate);
+    }
+    if (filters.createdBy) {
+      sql += ` AND u.nombre = $${i++}`;
+      values.push(filters.createdBy);
     }
 
     sql += ` ORDER BY o.created_at DESC`;
@@ -284,6 +299,7 @@ export class TejabanPaymentModel {
     toDate,
     methods,
     orderTypes,
+    recordedBy,
   } = {}) {
     let sql = `
       SELECT p.*, o.order_number, o.order_type, u.nombre AS recorded_by_name
@@ -310,6 +326,10 @@ export class TejabanPaymentModel {
     if (orderTypes?.length) {
       sql += ` AND o.order_type = ANY($${i++})`;
       values.push(orderTypes);
+    }
+    if (recordedBy) {
+      sql += ` AND u.nombre = $${i++}`;
+      values.push(recordedBy);
     }
 
     sql += ` ORDER BY p.paid_at DESC`;

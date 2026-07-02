@@ -4,14 +4,22 @@ import { tejabanAxios } from '@tejaban/api/axiosInstance';
 import type {
   CreateOrderPayload,
   Order,
-  OrderStatus,
   UpdateOrderPayload,
 } from '@tejaban/types/order.types';
+import type { OrderListFilters } from '@tejaban/types/payment.types';
 
 export const orderService = {
-  async getOrders(filters?: { status?: OrderStatus; today?: boolean }): Promise<Order[]> {
+  async getOrders(filters?: OrderListFilters): Promise<Order[]> {
     if (CONFIG.USE_MOCK_API) return mockStore.getOrders(filters);
-    const { data } = await tejabanAxios.get<{ orders: Order[] }>('/orders', { params: filters });
+    const { data } = await tejabanAxios.get<{ orders: Order[] }>('/orders', {
+      params: {
+        status: filters?.status,
+        today: filters?.today,
+        from: filters?.fromDate,
+        to: filters?.toDate,
+        createdBy: filters?.createdBy,
+      },
+    });
     return data.orders;
   },
 

@@ -18,12 +18,14 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import SearchIcon from '@mui/icons-material/Search';
 import { toast } from 'react-toastify';
+import { DateRangeFilter } from '@tejaban/components/filters/date-range-filter';
+import { FilterPanel } from '@tejaban/components/layout/filter-panel';
+import { PageHeader } from '@tejaban/components/layout/page-header';
 import { paymentService } from '@tejaban/services/payment.service';
 import { ALL_ORDER_TYPES, ORDER_TYPE_LABELS } from '@tejaban/types/order.types';
 import type { OrderType } from '@tejaban/types/order.types';
@@ -32,25 +34,30 @@ import {
   PAYMENT_METHOD_LABELS,
 } from '@tejaban/types/payment.types';
 import type { PaymentMethod, SalesReport } from '@tejaban/types/payment.types';
+import {
+  resolveDateRange,
+  todayIso,
+  type DateRange,
+  type DateRangePreset,
+} from '@tejaban/utils/date-range';
 import { formatCurrency, formatDateTime } from '@tejaban/utils/format';
 import { downloadSalesReportCsv } from '@tejaban/utils/export-sales-csv';
 
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function monthStartIso(): string {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
-}
-
 export default function SalesReportPage() {
-  const [fromDate, setFromDate] = useState(monthStartIso);
-  const [toDate, setToDate] = useState(todayIso);
+  const [datePreset, setDatePreset] = useState<DateRangePreset>('last30');
+  const [customRange, setCustomRange] = useState<DateRange>({
+    fromDate: todayIso().slice(0, 8) + '01',
+    toDate: todayIso(),
+  });
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [orderTypes, setOrderTypes] = useState<OrderType[]>([]);
   const [report, setReport] = useState<SalesReport | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const dateRange = useMemo(
+    () => resolveDateRange(datePreset, customRange),
+    [datePreset, customRange],
+  );
 
   const toggleMethod = (method: PaymentMethod) => {
     setMethods((prev) =>
@@ -65,6 +72,7 @@ export default function SalesReportPage() {
   };
 
   const handleGenerate = async () => {
+    const { fromDate, toDate } = dateRange;
     if (!fromDate || !toDate) {
       toast.error('Selecciona un rango de fechas');
       return;
@@ -110,38 +118,18 @@ export default function SalesReportPage() {
 
   return (
     <Box sx={{ maxWidth: 1120, mx: 'auto', width: '100%' }}>
-      <Typography variant="h5" fontWeight={800} gutterBottom>
-        Reporte de ventas
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Filtra por fechas, método de pago y origen de orden. Exporta el resultado a CSV.
-      </Typography>
+      <PageHeader
+        title="Reporte de ventas"
+        subtitle="Filtra por fechas, método de pago y origen de orden. Exporta el resultado a CSV."
+      />
 
-      <Paper elevation={0} sx={{ p: 2.5, mb: 3, border: 1, borderColor: 'divider', borderRadius: 3 }}>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Desde"
-              type="date"
-              fullWidth
-              size="small"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              label="Hasta"
-              type="date"
-              fullWidth
-              size="small"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Grid>
-        </Grid>
+      <FilterPanel>
+        <DateRangeFilter
+          preset={datePreset}
+          customRange={customRange}
+          onPresetChange={setDatePreset}
+          onCustomRangeChange={setCustomRange}
+        />
 
         <Grid container spacing={3} sx={{ mt: 0.5 }}>
           <Grid item xs={12} md={6}>
@@ -212,7 +200,7 @@ export default function SalesReportPage() {
             </Button>
           )}
         </Box>
-      </Paper>
+      </FilterPanel>
 
       {loading && (
         <Box>

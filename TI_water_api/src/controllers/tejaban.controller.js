@@ -84,9 +84,14 @@ export async function deleteProduct(req, res) {
 
 export async function listOrders(req, res) {
   try {
+    const fromDate = req.query.from || req.query.fromDate;
+    const toDate = req.query.to || req.query.toDate;
     const orders = await TejabanOrderModel.findAll({
       status: req.query.status,
-      today: req.query.today === 'true',
+      today: req.query.today === 'true' && !fromDate && !toDate,
+      fromDate,
+      toDate,
+      createdBy: req.query.createdBy || undefined,
     });
     res.json({ orders });
   } catch (e) {
@@ -169,12 +174,15 @@ export async function removeOrderItem(req, res) {
 
 export async function listPayments(req, res) {
   try {
+    const fromDate = req.query.from || req.query.fromDate;
+    const toDate = req.query.to || req.query.toDate;
     const payments = await TejabanPaymentModel.findAll({
-      today: req.query.today === 'true',
-      fromDate: req.query.from || req.query.fromDate,
-      toDate: req.query.to || req.query.toDate,
+      today: req.query.today === 'true' && !fromDate && !toDate,
+      fromDate,
+      toDate,
       methods: parseCsvQuery(req.query.methods),
       orderTypes: parseCsvQuery(req.query.orderTypes),
+      recordedBy: req.query.recordedBy || undefined,
     });
     res.json({ payments });
   } catch (e) {
@@ -202,13 +210,23 @@ export async function createPayment(req, res) {
   }
 }
 
-export async function dailySummary(_req, res) {
+export async function dailySummary(req, res) {
   try {
-    const payments = await TejabanPaymentModel.findAll({ today: true });
-    const orders = await TejabanOrderModel.findAll({ today: true });
+    const fromDate = req.query.from || req.query.fromDate;
+    const toDate = req.query.to || req.query.toDate;
+    const useToday = !fromDate && !toDate;
+
+    const payments = await TejabanPaymentModel.findAll(
+      useToday ? { today: true } : { fromDate, toDate },
+    );
+    const orders = await TejabanOrderModel.findAll(
+      useToday ? { today: true } : { fromDate, toDate },
+    );
     const sum = (fn) => payments.filter(fn).reduce((s, p) => s + p.amount, 0);
     res.json({
-      date: new Date().toDateString(),
+      date: useToday ? new Date().toDateString() : `${fromDate} — ${toDate}`,
+      fromDate: useToday ? undefined : fromDate,
+      toDate: useToday ? undefined : toDate,
       orderCount: orders.length,
       closedOrderCount: orders.filter((o) => o.status === 'cerrada').length,
       openOrderCount: orders.filter((o) => o.status !== 'cerrada' && o.status !== 'cancelada').length,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -30,7 +30,16 @@ import type { DailySummary } from '@tejaban/types/payment.types';
 import type { Order } from '@tejaban/types/order.types';
 import { formatCurrency, formatTime } from '@tejaban/utils/format';
 import { OrderStatusChip } from '@tejaban/components/orders/order-status-chip';
+import { DateRangeFilter } from '@tejaban/components/filters/date-range-filter';
+import { FilterPanel } from '@tejaban/components/layout/filter-panel';
 import { desktopNavSx } from '@tejaban/layout/breakpoints';
+import {
+  formatDateRangeLabel,
+  resolveDateRange,
+  todayIso,
+  type DateRange,
+  type DateRangePreset,
+} from '@tejaban/utils/date-range';
 
 type TileConfig = {
   id: string;
@@ -52,20 +61,37 @@ export default function DashboardPage() {
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [salesOpen, setSalesOpen] = useState(false);
+  const [datePreset, setDatePreset] = useState<DateRangePreset>('today');
+  const [customRange, setCustomRange] = useState<DateRange>({
+    fromDate: todayIso(),
+    toDate: todayIso(),
+  });
+
+  const dateRange = useMemo(
+    () => resolveDateRange(datePreset, customRange),
+    [datePreset, customRange],
+  );
 
   useEffect(() => {
-    const requests: [Promise<DailySummary> | null, Promise<Order[]>] = [
-      canViewAccounting ? paymentService.getDailySummary() : null,
-      orderService.getOrders({ today: true }),
-    ];
+    setLoading(true);
+    const orderRequest = orderService.getOrders({
+      fromDate: dateRange.fromDate,
+      toDate: dateRange.toDate,
+    });
+    const summaryRequest = canViewAccounting
+      ? paymentService.getDailySummary({
+          fromDate: dateRange.fromDate,
+          toDate: dateRange.toDate,
+        })
+      : null;
 
-    Promise.all([requests[0] ?? Promise.resolve(null), requests[1]])
+    Promise.all([summaryRequest ?? Promise.resolve(null), orderRequest])
       .then(([s, orders]) => {
         if (s) setSummary(s);
         setRecentOrders(orders.slice(0, 5));
       })
       .finally(() => setLoading(false));
-  }, [canViewAccounting]);
+  }, [canViewAccounting, dateRange.fromDate, dateRange.toDate]);
 
   const openOrderCount =
     summary?.openOrderCount ??
@@ -100,7 +126,7 @@ export default function DashboardPage() {
       ? [
           {
             id: 'ventas',
-            label: 'Ventas hoy',
+            label: datePreset === 'today' ? 'Ventas hoy' : 'Ventas',
             value: summary ? formatCurrency(summary.totalSales) : '—',
             hint: 'Ver detalle',
             icon: <AttachMoneyIcon />,
@@ -128,9 +154,18 @@ export default function DashboardPage() {
           Hola, {displayName(user).split(' ')[0]}
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          {roleLabel(user)} · Resumen del día
+          {roleLabel(user)} · {formatDateRangeLabel(dateRange)}
         </Typography>
       </Box>
+
+      <FilterPanel>
+        <DateRangeFilter
+          preset={datePreset}
+          customRange={customRange}
+          onPresetChange={setDatePreset}
+          onCustomRangeChange={setCustomRange}
+        />
+      </FilterPanel>
 
       <Box
         sx={{
@@ -205,7 +240,7 @@ export default function DashboardPage() {
               ))
             ) : recentOrders.length === 0 ? (
               <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
-                No hay órdenes hoy.
+                No hay órdenes en este periodo.
               </Typography>
             ) : (
               recentOrders.map((order, idx) => (
@@ -245,7 +280,12 @@ export default function DashboardPage() {
         </Paper>
       </Box>
 
-      <SalesDetailDialog open={salesOpen} summary={summary} onClose={() => setSalesOpen(false)} />
+      <SalesDetailDialog
+        open={salesOpen}
+        summary={summary}
+        dateLabel={summary ? formatDateRangeLabel(dateRange) : 'Hoy'}
+        onClose={() => setSalesOpen(false)}
+      />
     </Box>
   );
 }
@@ -340,15 +380,17 @@ function DashboardTile({
 function SalesDetailDialog({
   open,
   summary,
+  dateLabel,
   onClose,
 }: {
   open: boolean;
   summary: DailySummary | null;
+  dateLabel: string;
   onClose: () => void;
 }) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle fontWeight={800}>Detalle de ventas — hoy</DialogTitle>
+      <DialogTitle fontWeight={800}>Detalle de ventas — {dateLabel}</DialogTitle>
       <DialogContent>
         {!summary ? (
           <Typography color="text.secondary">Sin datos de ventas.</Typography>
@@ -363,7 +405,7 @@ function SalesDetailDialog({
             <Row label="DiDi Food" value={formatCurrency(summary.didiTotal)} />
             <Row label="Rappi" value={formatCurrency(summary.rapiTotal)} />
             <Divider />
-            <Row label="Órdenes hoy" value={String(summary.orderCount)} />
+            <Row label="Órdenes" value={String(summary.orderCount)} />
             <Row label="Cerradas" value={String(summary.closedOrderCount)} />
             <Row label="Abiertas" value={String(summary.openOrderCount)} />
           </Box>

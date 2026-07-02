@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Box,
@@ -80,7 +80,20 @@ export function DashboardLayout({ children }: { children?: React.ReactNode }) {
       >
         <Toolbar sx={{ minHeight: { xs: 64, sm: 72 }, gap: 1 }}>
           <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <TejabanLogo height={56} maxWidth={200} />
+            <Box
+              component={Link}
+              to={tejabanPath('/')}
+              aria-label="Ir al inicio"
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                textDecoration: 'none',
+                borderRadius: 1,
+                '&:hover': { opacity: 0.92 },
+              }}
+            >
+              <TejabanLogo height={56} maxWidth={200} />
+            </Box>
             <Typography
               variant="caption"
               sx={{ opacity: 0.85, display: { xs: 'none', md: 'block' }, maxWidth: 200 }}
@@ -135,6 +148,7 @@ export function DashboardLayout({ children }: { children?: React.ReactNode }) {
               : { xs: 'calc(88px + env(safe-area-inset-bottom, 0px))', sm: 'calc(80px + env(safe-area-inset-bottom, 0px))' },
             px: { xs: 2, sm: 3 },
             py: { xs: 2, sm: 2.5 },
+            background: 'linear-gradient(180deg, #EEF5FA 0%, #F7FAFC 120px)',
           }}
         >
           {children ?? <Outlet />}
