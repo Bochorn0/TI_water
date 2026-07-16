@@ -95,6 +95,8 @@ export function AdminRolesPage() {
   const [detail, setDetail] = useState<RoleRow | null>(null);
   /** Full permissions array while dialog is open (TI Water toggles + legacy paths preserved on save) */
   const [draftPermissions, setDraftPermissions] = useState<string[]>([]);
+  const [draftName, setDraftName] = useState('');
+  const [draftDashboardVersion, setDraftDashboardVersion] = useState('v1');
   const [saving, setSaving] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState<CreateRoleForm>(emptyCreateForm);
@@ -119,8 +121,12 @@ export function AdminRolesPage() {
   useEffect(() => {
     if (detail) {
       setDraftPermissions([...(detail.permissions || [])]);
+      setDraftName(detail.name || '');
+      setDraftDashboardVersion(detail.dashboardVersion || 'v1');
     } else {
       setDraftPermissions([]);
+      setDraftName('');
+      setDraftDashboardVersion('v1');
     }
   }, [detail]);
 
@@ -191,6 +197,11 @@ export function AdminRolesPage() {
 
   const handleSave = async () => {
     if (!detail || isProtected) return;
+    const name = draftName.trim();
+    if (!name) {
+      toast.error('El nombre del rol es obligatorio');
+      return;
+    }
     setSaving(true);
     try {
       const legacy = (detail.permissions || []).filter((p) => !TIWATER_PATH_SET.has(p));
@@ -198,11 +209,17 @@ export function AdminRolesPage() {
         (p) => p.path,
       );
       const merged = [...new Set([...legacy, ...tiSelected])];
-      const updated = await v1Patch<RoleRow>(`/roles/${detail.id}`, { permissions: merged });
-      toast.success('Permisos actualizados');
+      const updated = await v1Patch<RoleRow>(`/roles/${detail.id}`, {
+        name,
+        permissions: merged,
+        dashboardVersion: draftDashboardVersion || 'v1',
+      });
+      toast.success('Rol actualizado');
       setRows((prev) => prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)));
       setDetail({ ...detail, ...updated, permissions: updated.permissions ?? merged });
       setDraftPermissions([...(updated.permissions ?? merged)]);
+      setDraftName(updated.name || name);
+      setDraftDashboardVersion(updated.dashboardVersion || draftDashboardVersion);
     } catch (e) {
       toast.error(getApiErrorMessage(e, 'No se pudo guardar el rol'));
     } finally {
@@ -365,20 +382,31 @@ export function AdminRolesPage() {
       </Dialog>
 
       <Dialog open={Boolean(detail)} onClose={closeDialog} fullWidth maxWidth="sm">
-        <DialogTitle>
-          {isProtected ? 'Ver permisos' : 'Editar permisos'}: {detail?.name}
-        </DialogTitle>
+        <DialogTitle>{isProtected ? 'Ver rol' : 'Editar rol'}</DialogTitle>
         <DialogContent dividers>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Versión dashboard:{' '}
-            <strong>
-              {detail
-                ? DASHBOARD_VERSION_LABELS[detail.dashboardVersion || ''] ||
-                  detail.dashboardVersion ||
-                  '—'
-                : ''}
-            </strong>
-          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
+            <TextField
+              label="Nombre"
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              fullWidth
+              required
+              disabled={isProtected}
+            />
+            <TextField
+              select
+              label="Versión del dashboard"
+              value={draftDashboardVersion}
+              onChange={(e) => setDraftDashboardVersion(e.target.value)}
+              fullWidth
+              disabled={isProtected}
+              InputLabelProps={{ shrink: true }}
+            >
+              <MenuItem value="v1">Dashboard v1</MenuItem>
+              <MenuItem value="v2">Dashboard v2</MenuItem>
+              <MenuItem value="both">Ambos</MenuItem>
+            </TextField>
+          </Box>
 
           {isProtected && (
             <Alert severity="info" sx={{ mb: 2 }}>
@@ -439,7 +467,7 @@ export function AdminRolesPage() {
           <Button onClick={closeDialog}>Cerrar</Button>
           {!isProtected && (
             <Button variant="contained" onClick={() => void handleSave()} disabled={saving}>
-              {saving ? <CircularProgress size={22} /> : 'Guardar permisos'}
+              {saving ? <CircularProgress size={22} /> : 'Guardar'}
             </Button>
           )}
         </DialogActions>
