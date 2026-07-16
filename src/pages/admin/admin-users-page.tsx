@@ -1,8 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Typography, Chip } from '@mui/material';
+import {
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  TextField,
+  Typography,
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import { CONFIG } from 'src/config-global';
-import { v1Get } from 'src/api/v1-helpers';
+import { v1Get, v1Post } from 'src/api/v1-helpers';
 import { getApiErrorMessage } from 'src/utils/api-error';
 import { toast } from 'react-toastify';
 import { AdminDataTable, type AdminColumnDef } from 'src/components/admin/AdminDataTable';
@@ -15,22 +28,114 @@ type Row = {
   status?: string;
 };
 
+type RoleOption = {
+  id: number;
+  name: string;
+};
+
+type CreateForm = {
+  nombre: string;
+  email: string;
+  password: string;
+  role_id: string;
+  status: 'active' | 'pending';
+};
+
+const emptyForm = (): CreateForm => ({
+  nombre: '',
+  email: '',
+  password: '',
+  role_id: '',
+  status: 'active',
+});
+
 export function AdminUsersPage() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState<CreateForm>(emptyForm);
+  const [saving, setSaving] = useState(false);
+
+  const loadUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await v1Get<Row[]>('/users');
+      setRows(Array.isArray(data) ? data : []);
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, 'No se pudieron cargar usuarios'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
 
   useEffect(() => {
     void (async () => {
       try {
-        const data = await v1Get<Row[]>('/users');
-        setRows(Array.isArray(data) ? data : []);
-      } catch (e) {
-        toast.error(getApiErrorMessage(e, 'No se pudieron cargar usuarios'));
-      } finally {
-        setLoading(false);
+        const data = await v1Get<RoleOption[]>('/roles');
+        setRoles(Array.isArray(data) ? data : []);
+      } catch {
+        // Roles are only needed when creating; surface error on submit if still empty
       }
     })();
   }, []);
+
+  const openCreate = () => {
+    setForm(emptyForm());
+    setDialogOpen(true);
+  };
+
+  const closeCreate = () => {
+    if (saving) return;
+    setDialogOpen(false);
+  };
+
+  const handleChange =
+    (field: keyof CreateForm) => (e: React.ChangeEvent<HTMLInputElement>) => {
+      setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    };
+
+  const handleCreate = async () => {
+    const email = form.email.trim();
+    const password = form.password.trim();
+    const nombre = form.nombre.trim();
+
+    if (!email) {
+      toast.error('El correo es obligatorio');
+      return;
+    }
+    if (password.length < 6) {
+      toast.error('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+    if (!form.role_id) {
+      toast.error('Selecciona un rol');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await v1Post<Row>('/users', {
+        email,
+        password,
+        nombre,
+        role_id: Number(form.role_id),
+        status: form.status,
+      });
+      toast.success('Usuario creado');
+      setDialogOpen(false);
+      setForm(emptyForm());
+      await loadUsers();
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, 'No se pudo crear el usuario'));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const columns: AdminColumnDef<Row>[] = [
     { id: 'email', header: 'Email', cell: (r) => r.email },
@@ -48,9 +153,12 @@ export function AdminUsersPage() {
       <Helmet>
         <title>Usuarios — {CONFIG.appName}</title>
       </Helmet>
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        Usuarios
-      </Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 2, mb: 2 }}>
+        <Typography variant="h6">Usuarios</Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+          Añadir usuario
+        </Button>
+      </Box>
       <AdminDataTable<Row>
         rows={rows}
         rowId={(r) => r.id}
@@ -78,6 +186,83 @@ export function AdminUsersPage() {
         emptyMessage="No hay usuarios"
         defaultRowsPerPage={10}
       />
+
+      <Dialog open={dialogOpen} onClose={closeCreate} fullWidth maxWidth="sm">
+        <DialogTitle>Nuevo usuario</DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <TextField
+              label="Nombre"
+              value={form.nombre}
+              onChange={handleChange('nombre')}
+              fullWidth
+              autoFocus
+            />
+            <TextField
+              label="Correo"
+              type="email"
+              value={form.email}
+              onChange={handleChange('email')}
+              fullWidth
+              required
+            />
+            <TextField
+              label="Contraseña"
+              type="password"
+              value={form.password}
+              onChange={handleChange('password')}
+              fullWidth
+              required
+              helperText="Mínimo 6 caracteres"
+            />
+            <TextField
+              select
+              label="Rol"
+              value={form.role_id}
+              onChange={handleChange('role_id')}
+              fullWidth
+              required
+              InputLabelProps={{ shrink: true }}
+            >
+              {roles.length === 0 ? (
+                <MenuItem value="" disabled>
+                  No hay roles disponibles
+                </MenuItem>
+              ) : (
+                roles.map((role) => (
+                  <MenuItem key={role.id} value={String(role.id)}>
+                    {role.name}
+                  </MenuItem>
+                ))
+              )}
+            </TextField>
+            <TextField
+              select
+              label="Estado"
+              value={form.status}
+              onChange={handleChange('status')}
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+            >
+              <MenuItem value="active">Activo</MenuItem>
+              <MenuItem value="pending">Pendiente</MenuItem>
+            </TextField>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={closeCreate} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void handleCreate()}
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
+          >
+            Crear
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
