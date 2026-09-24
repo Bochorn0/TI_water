@@ -43,7 +43,11 @@ jobs:
             fi
 
             npm ci
-            npm run catalog:build-images
+            if [ -f src/assets/catalogs/Catalogo_valvulas.pdf ]; then
+              npm run catalog:build-images
+            else
+              echo "Catalog PDF is not in the repo; skipping image generation."
+            fi
             npm run build
 
             cd TI_water_api
@@ -51,9 +55,10 @@ jobs:
             node scripts/migrations/run-all-migrations.js
 
             cd /var/www/tiwater
-            if pm2 describe tiwater-api >/dev/null 2>&1; then
-              pm2 restart tiwater-api
+            # The app is supervised by root's PM2. deploy has passwordless sudo.
+            if sudo pm2 describe tiwater-api >/dev/null 2>&1; then
+              sudo pm2 restart tiwater-api
             else
-              pm2 start deploy/ecosystem.config.cjs
+              sudo pm2 start deploy/ecosystem.config.cjs
             fi
-            pm2 save
+            sudo pm2 save
