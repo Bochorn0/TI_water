@@ -1,0 +1,64 @@
+# DigitalOcean deploy for the standalone TI_water repo (Bochorn0/TI_water).
+# Azure workflows in this directory stay in place until DNS cutover is confirmed.
+# Pushing the Aquatech monorepo does not run this file.
+
+name: Deploy TI Water to DigitalOcean
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to DigitalOcean
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull, build, migrate, and restart on droplet
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script_stop: true
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+            cd /var/www/tiwater
+            git fetch origin main
+            git reset --hard origin/main
+
+            if [ ! -f .env.production ]; then
+              echo "Missing /var/www/tiwater/.env.production — copy deploy/frontend.env.production.example and fill VITE_* before deploying." >&2
+              exit 1
+            fi
+            if [ ! -f TI_water_api/.env ]; then
+              echo "Missing /var/www/tiwater/TI_water_api/.env — copy deploy/api.env.example and fill secrets from Azure App Service before deploying." >&2
+              exit 1
+            fi
+
+            if ! command -v pdftoppm >/dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y poppler-utils
+            fi
+
+            npm ci
+            if [ -f src/assets/catalogs/Catalogo_valvulas.pdf ]; then
+              npm run catalog:build-images
+            else
+              echo "Catalog PDF is not in the repo; skipping image generation."
+            fi
+            npm run build
+
+            cd TI_water_api
+            npm ci --omit=dev
+            node scripts/migrations/run-all-migrations.js
+
+            cd /var/www/tiwater
+            # The app is supervised by root's PM2. deploy has passwordless sudo.
+            if sudo pm2 describe tiwater-api >/dev/null 2>&1; then
+              sudo pm2 restart tiwater-api
+            else
+              sudo pm2 start deploy/ecosystem.config.cjs
+            fi
+            sudo pm2 save

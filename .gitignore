@@ -24,6 +24,8 @@ dist-ssr
 *.sw?
 
 .env
+.env.production
+*.dump
 
 # Catalog product images (regenerated from PDF; not committed — see
 # src/assets/catalogs/valvulas/WHERE_IMAGES.txt)
