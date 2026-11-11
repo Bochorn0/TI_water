@@ -44,3 +44,7 @@ TI_water_api/catalog-seed/
 src/assets/catalogs/**/product.json
 src/assets/catalogs/**/BATCH-MANIFEST.json
 src/assets/catalogs/*.pdf
+
+# Android app binary (served from the droplet, not committed)
+/tiwater_app
+*.apk
