@@ -1,6 +1,8 @@
 import { Box, Container, Typography, Grid, Link, TextField, Button } from '@mui/material';
 import FacebookIcon from '@mui/icons-material/Facebook';
 import InstagramIcon from '@mui/icons-material/Instagram';
+import AndroidIcon from '@mui/icons-material/Android';
+import { ANDROID_APP_DOWNLOAD_PATH } from 'src/constants/app-download';
 
 export function Footer() {
   return (
@@ -148,6 +150,30 @@ export function Footer() {
                 <InstagramIcon fontSize="small" />
               </Link>
             </Box>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+              Aplicación
+            </Typography>
+            <Link
+              href={ANDROID_APP_DOWNLOAD_PATH}
+              sx={{
+                color: 'rgba(255, 255, 255, 0.9)',
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 1,
+                fontWeight: 600,
+                '&:hover': { color: 'primary.light' },
+              }}
+            >
+              <AndroidIcon fontSize="small" />
+              Descargar para Android
+            </Link>
+            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', mt: 1 }}>
+              Al instalar, permite orígenes desconocidos en el teléfono.
+            </Typography>
           </Grid>
 
           <Grid item xs={12} md={4}>

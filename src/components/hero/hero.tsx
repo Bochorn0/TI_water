@@ -1,6 +1,8 @@
 import { Box, Container, Typography, Button } from '@mui/material';
+import AndroidIcon from '@mui/icons-material/Android';
 import { motion } from 'framer-motion';
 import heroImage from '/assets/hero-banner.jpg';
+import { ANDROID_APP_DOWNLOAD_PATH } from 'src/constants/app-download';
 
 export function Hero() {
   return (
@@ -59,28 +61,58 @@ export function Hero() {
             Tecnología innovadora en purificación de agua para garantizar calidad y bienestar
           </Typography>
 
-          <Button
-            variant="contained"
-            size="large"
-            href="#contacto"
+          <Box
             sx={{
-              bgcolor: 'primary.main',
-              color: 'white',
-              fontSize: '1.1rem',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              px: 4,
-              py: 1.5,
-              '&:hover': {
-                bgcolor: 'primary.dark',
-                transform: 'translateY(-2px)',
-                boxShadow: 4,
-              },
-              transition: 'all 0.3s',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 2,
+              justifyContent: { xs: 'center', md: 'flex-start' },
             }}
           >
-            ¡Cotizar un sistema!
-          </Button>
+            <Button
+              variant="contained"
+              size="large"
+              href="#contacto"
+              sx={{
+                bgcolor: 'primary.main',
+                color: 'white',
+                fontSize: '1.1rem',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                px: 4,
+                py: 1.5,
+                '&:hover': {
+                  bgcolor: 'primary.dark',
+                  transform: 'translateY(-2px)',
+                  boxShadow: 4,
+                },
+                transition: 'all 0.3s',
+              }}
+            >
+              ¡Cotizar un sistema!
+            </Button>
+            <Button
+              variant="outlined"
+              size="large"
+              href={ANDROID_APP_DOWNLOAD_PATH}
+              startIcon={<AndroidIcon />}
+              sx={{
+                color: 'white',
+                borderColor: 'rgba(255, 255, 255, 0.85)',
+                fontSize: '1.1rem',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                px: 4,
+                py: 1.5,
+                '&:hover': {
+                  borderColor: 'white',
+                  bgcolor: 'rgba(255, 255, 255, 0.12)',
+                },
+              }}
+            >
+              Descargar app
+            </Button>
+          </Box>
         </Box>
       </Container>
     </Box>

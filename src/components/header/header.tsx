@@ -21,6 +21,7 @@ import ViewSidebarIcon from '@mui/icons-material/ViewSidebar';
 import logoImage from '/assets/ti-water-logo.png';
 import { Badge, Tooltip } from '@mui/material';
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
+import { ANDROID_APP_DOWNLOAD_PATH } from 'src/constants/app-download';
 import { useAuth } from 'src/auth/auth-context';
 import { useQuoteDraftOptional } from 'src/quote/quote-draft-context';
 import { useAdminSidebarOpen } from 'src/components/admin/admin-sidebar-context';
@@ -107,6 +108,15 @@ export function Header() {
             </ListItemButton>
           </ListItem>
         ))}
+        <ListItem disablePadding>
+          <ListItemButton
+            component="a"
+            href={ANDROID_APP_DOWNLOAD_PATH}
+            sx={{ textAlign: 'center', color: 'white', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.1)' } }}
+          >
+            <ListItemText primary="Descargar app" />
+          </ListItemButton>
+        </ListItem>
       </List>
       <Box sx={{ px: 2, pb: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
         {isAuthenticated ? (
@@ -177,6 +187,13 @@ export function Header() {
             </Box>
 
             <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
+              <Button
+                color="inherit"
+                href={ANDROID_APP_DOWNLOAD_PATH}
+                sx={{ fontWeight: 500, display: { md: 'none', lg: 'inline-flex' } }}
+              >
+                Descargar app
+              </Button>
               <Tooltip title="Productos añadidos a su cotización">
                 <Badge color="error" badgeContent={quoteUnits} max={99} overlap="circular" invisible={quoteUnits === 0}>
                   <Button
